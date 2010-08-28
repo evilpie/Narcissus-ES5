@@ -210,7 +210,8 @@ Narcissus.definitions = (function() {
             map[name] = Object.getOwnPropertyDescriptor(obj, name);
         return map;
     }
-
+    
+    /*
     function makePassthruHandler(obj) {
         // Handler copied from
         // http://wiki.ecmascript.org/doku.php?id=harmony:proxies&s=proxy%20object#examplea_no-op_forwarding_proxy
@@ -259,6 +260,7 @@ Narcissus.definitions = (function() {
             keys: function() { return Object.keys(obj); }
         };
     }
+    */
 
     return {
         tokens: tokens,
@@ -270,7 +272,7 @@ Narcissus.definitions = (function() {
         defineGetter: defineGetter,
         defineProperty: defineProperty,
         isNativeCode: isNativeCode,
-        makePassthruHandler: makePassthruHandler
+        //makePassthruHandler: makePassthruHandler
     };
 }());
 

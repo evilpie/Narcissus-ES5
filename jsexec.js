@@ -727,9 +727,6 @@ Narcissus.interpreter = (function() {
             r = execute(n[0], x);
             t = getValue(r);
             u = n[1].value;
-            console.log('Dot: ' + u);
-            console.log(n[0]);
-            console.log(n[1]);
             v = new Reference(toObject(t, r, n[0]), u, n);
             break;
 
@@ -826,7 +823,6 @@ Narcissus.interpreter = (function() {
                 if (n.value in s.object)
                     break;
             }
-            console.log('IDENTIFIER: ' + s.object);
             v = new Reference(s && s.object, n.value, n);
             break;
 

@@ -15,9 +15,9 @@
 function execute() {    
     var v, code = document.getElementById('code');
     
-    console.log('omg:' + code.value);
-    
     v = Narcissus.interpreter.evaluate(code.value);
+    
+    console.log('Result: ');
     console.log(v);
 }
 </script>

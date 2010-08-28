@@ -1,15 +1,25 @@
 <html>
 <head>
     <title>Narciuss</title>
-    <script>
-        Narcissus = {};
-    </script>
-    <script src="jsexec4.js"></script>
+    <script src="jsdefs.js"></script>
+    <script src="jslex.js"></script>
+    <script src="jsparse.js"></script>    
+    <script src="jsexec-es5.js"></script>
 </head>
 <body>
 
+<textarea id="code"></textarea>
+<button onclick="execute(event)">Execute</button>
+
 <script>
-//Narcissus.interpreter.evaluate('alert((1).prototype)');
+function execute() {    
+    var v, code = document.getElementById('code');
+    
+    console.log('omg:' + code.value);
+    
+    v = Narcissus.interpreter.evaluate(code.value);
+    console.log(v);
+}
 </script>
 
 </body>

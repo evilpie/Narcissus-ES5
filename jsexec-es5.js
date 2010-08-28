@@ -1,4 +1,4 @@
-(function () {
+Narcissus.interpreter = (function () {
     
     var extend = function(child, parent, proto) {
         var ctor = function(){};
@@ -9,7 +9,47 @@
             child.prototype[key] = proto[key];
         }
     };    
+
+
+    /* Copy -> */
+
+    var parser = Narcissus.parser;
+    var definitions = Narcissus.definitions;
+    var hostGlobal = Narcissus.hostGlobal;
     
+
+    eval(definitions.consts);
+
+        
+    /* <- */
+    
+    function Reference(base, propertyName, node) {
+        this.base = base;
+        this.propertyName = propertyName;
+        this.node = node;
+    }
+
+    Reference.prototype.toString = function () { 
+        return this.node.getSource(); 
+    }
+
+    function getValue(v) {
+        if (v instanceof Reference) {
+            if (!v.base) {
+                throw new ReferenceError(v.propertyName + " is not defined",
+                                         v.node.filename, v.node.lineno);
+            }
+            return v.base.Get(v.propertyName);
+        }
+        return v;
+    }
+
+    function putValue(v, w, vn) {
+        if (v instanceof Reference)
+            return (v.base || globalObject).Put(v.propertyName, w, true);
+        throw new ReferenceError("Invalid assignment left-hand side",
+                                 vn.filename, vn.lineno);
+    }    
     
     
     Narcissus.Object = function () {                  
@@ -79,16 +119,82 @@
             return proto.GetProperty(P);            
         },        
         
-        
-        Put: function () {
+        Put: function (P, V, Throw) {
+            var desc, ownDesc, valueDesc;
+            
+            if (!this.CanPut(P)) {
+                if (Throw)
+                    throw TypeError;
+                
+                return;
+            }
+            
+            ownDesc = this.GetOwnProperty(P);
+            
+            if (IsDataDescriptor(ownDesc)) {
+                valueDesc = {Value: V};
+                this.DefineOwnProperty(P, valueDesc, Throw);   
+                return;
+            }
+            
+            desc = this.GetProperty(P);
+            if (IsAccessorDescriptor(desc)) {
+                desc.Set.Call(this, [V]);
+            }
+            
+            desc = {Value: V, Writable: true, Enumerable: true, Configurable: true};
+            this.DefineOwnProperty(P, desc, Throw);        
         },
-        CanPut: function () {
+        
+        CanPut: function (P) {
+            var desc, proto, inherited;
+            
+            desc = this.GetOwnProperty(P);
+            
+            if (desc !== undefined) {
+                if (IsAccessorDescriptor(desc))
+                    return (desc.Set !== undefined);
+                else
+                    return desc.Writable
+            }
+            
+            proto = this.Prototype;
+            if (proto === null)
+                return this.Extensible;
+                
+            inherited = proto.GetProperty(P);
+            if (inherited === undefined)
+                return this.Extensible;
+            
+            if (IsAccessorDescriptor(inherited))
+                return (inherited.Set !== undefined);
+            else {
+                if (this.Extensible == false)
+                    return false
+                return inherited.Writable;
+            }
+                
         },
         
-        HasProperty: function () {
+        HasProperty: function (P) {
+            return (this.GetProperty(P) !== undefined);
         },        
         
-        Delete: function () {
+        Delete: function (P, Throw) {
+            var desc;
+            
+            desc = this.GetOwnProperty(P);
+            if (desc === undefined)
+                return true;
+            
+            if (desc.Configurable) {
+                delete this.Properties[P];
+                return true;
+            }
+            if (Throw)
+                throw TypeError;
+            
+            return false;
         },
         
         DefaultValue: function () {
@@ -100,36 +206,60 @@
             current = this.GetOwnProperty(P);
             extensible = this.Extensible;
             
-            console.log('[' + this.Class + '] P: ' + P + ' HasIt: ' + !!current + ' Extensible: ' + extensible);
+            //console.log('[' + this.Class + '] P: ' + P + ' HasIt: ' + !!current + ' Extensible: ' + extensible);
 
             if (current === undefined && !extensible)
                 return false;
 
             if (current === undefined && extensible) {
-                if (IsDataDescriptor(Desc)) {
-                    this.Properties[P] = {};
-                    this.Properties[P].Value = Desc.Value || undefined;
-                    this.Properties[P].Writable = Desc.Writable || false;
-                    this.Properties[P].Enumerable = Desc.Enumerable || false;
-                    this.Properties[P].Configurable = Desc.Configurable || false;
+                if (IsGenericDescriptor(Desc) || IsDataDescriptor(Desc)) {
+                    this.Properties[P] = {
+                        Value: Desc.Value || undefined,
+                        Writable: !!Desc.Writable,
+                        Enumerable: !!Desc.Enumerable,
+                        Configurable: !!Desc.Configurable,
+                    };                    
                 }
-            }                                
+                else {
+                    this.Properties[P] = {
+                        Get: Desc.Set || undefined,
+                        Set: Desc.Get || undefined,
+                        Writable: !!Desc.Writable,
+                        Enumerable: !!Desc.Enumerable,
+                        Configurable: !!Desc.Configurable,                        
+                    };
+                }
+                
+                return true;
+            }
+            
+            if (!('Value' in Desc) && !('Get' in Desc) && !('Set' in Desc) && 
+                !('Writable' in Desc) && !('Enumerable' in Desc) && !('Writable' in Desc)) {
+                return true;
+            }                
+            
+            /* ToDo */          
         },
                 
 
         /* Extended */
         
         DefineNativeFunction: function (name, length, func) {
-            var o;
+            var func;
             
             /* ToDo The real logic */
             
+            func = new (Narcissus.ObjectFunctionInstance);
+            func.DefineOwnProperty('length', 
+                {Value: length, Enumerable: false, Configurable: false, Writable: false});
+            func.Native = true;
+            func.Call = func;
+            
             o = {};
-            o.Value = func
+            o.Value = func;
             o.Writable = true;
             o.Enumerable = false;
             o.Configurable = true;
-            o.Native = true;
             
             this.Properties[name] = o;
         }
@@ -296,7 +426,7 @@
     };
     
     /* Set Up The Global Object */    
-    var globalObject = new (Narcissus.ObjectObjectInstance)();        
+    var globalObject = new (Narcissus.ObjectObjectInstance);        
     
     globalObject.Extensible = true;
     globalObject.Call = undefined;
@@ -304,28 +434,38 @@
     globalObject.Class = 'Global';
     globalObject.Prototype = null;
     
+    
+    globalObject.DefineOwnProperty('NaN', 
+        {Value: NaN, Writable: false, Enumerable: false, Configurable: false});
+        
+    globalObject.DefineOwnProperty('Infinity',
+        {Value: Infinity, Writable: false, Enumerable: false, Configurable: false});
+        
+    globalObject.DefineOwnProperty('undefined',
+        {Value: undefined, Writable: false, Enumerable: false, Configurable: false});
+    
     /* Set Up Object */    
     globalObject.DefineOwnProperty('Object', 
-        {value: globals['Object'], Writable: true, Enumerable: false, Configurable: true});
+        {Value: globals['Object'], Writable: true, Enumerable: false, Configurable: true});
     
     globals['Object'].Prototype = globals['Function#prototype'];
-    globals['Object'].Properties['prototype'].Value = globals['Object#prototype'];
-        
-
+    globals['Object'].Properties['prototype'].Value = globals['Object#prototype'];        
     globals['Object#prototype'].Prototype = null;
+    
+    Narcissus.ObjectObjectInstance.Prototype = globals['Object#prototype'];
 
     /* Set Up Function */    
     globalObject.DefineOwnProperty('Function', 
-        {value: globals['Function'], Writable: true, Enumerable: false, Configurable: true});
+        {Value: globals['Function'], Writable: true, Enumerable: false, Configurable: true});
      
     globals['Function'].Prototype = globals['Function#prototype'];
     globals['Function'].Properties['prototype'].Value = globals['Functon#prototype'];
     globals['Function#prototype'].Prototype = globals['Object#prototype']
     globals['Function#prototype'].Properties['constructor'].Value = globals['Function'];           
     
-    
-    /* Testzzz */
-    
+    Narcissus.ObjectFunctionInstance.Prototype = globals['Function#prototype'];
+
+    console.log(globalObject);
     
     /* ToDo Function Stubs (Hackzzzz) */
     
@@ -339,7 +479,13 @@
     
     /* Helper */
     
-    function IsAccessorDescriptor(Desc) {
+    function IsGenericDescriptor (Desc) {
+        if (Desc === undefined)
+            return false;
+        return (!IsAccessorDescriptor(Desc) && !IsDataDescriptor(Desc));
+    }
+    
+    function IsAccessorDescriptor (Desc) {
         if (Desc === undefined)
             return false;
 
@@ -349,7 +495,7 @@
         return true;
     }
 
-    function IsDataDescriptor(Desc) {
+    function IsDataDescriptor (Desc) {
         if (Desc === undefined)
             return false;
 
@@ -359,6 +505,126 @@
         return true;
     }
     
+    
+    
+    
+    
+    /*  Execution Context */
+    
+    var GLOBAL_CODE = 0, EVAL_CODE = 1, FUNCTION_CODE = 2;
 
+    function ExecutionContext(type) {
+        this.type = type;
+    }    
+    
+    ExecutionContext.current = null;
+
+    ExecutionContext.prototype = {
+        caller: null,
+        callee: null,
+        scope: {object: globalObject, parent: null},
+        thisObject: globalObject,
+        result: undefined,
+        target: null,
+
+        execute: function(n) {
+            var prev = ExecutionContext.current;
+            ExecutionContext.current = this;
+            try {
+                execute(n, this);
+            } catch (e if e === THROW) {
+                // Propagate the throw to the previous context if it exists.
+                if (prev) {
+                    prev.result = this.result;
+                    throw THROW;
+                }
+                // Otherwise reflect the throw into host JS.
+                throw this.result;
+            } finally {
+                ExecutionContext.current = prev;
+            }
+        }
+    };    
+        
+    /* Muhaaa */
+    
+    
+    function execute(node, context) {
+        var a, f, i, j, r, s, t, u, v;
+        var value;
+        
+        
+        console.log(Narcissus.definitions.tokens[node.type]);
+        
+        
+        switch (node.type) {
+            
+            case SCRIPT:
+                t = context.scope.object;
+                
+                /* Assign Declared Functions to the global object */
+                a = node.funDecls;
+                for (i = 0, j = a.length; i < j; i++) {
+                    /* */
+                    throw 'Todo Declare Functions'
+                }
+                
+                /* The same for normal variables */
+                a = node.varDecls;
+                for (i = 0, j = a.length; i < j; i++) {
+                    throw 'Todo Declare Vars'
+                }
+            
+                /* Fallthrough */
+            case BLOCK:
+                for (i = 0, j = node.length; i < j; i++) { /* Start executing every node */
+                    execute(node[i], context);
+                }
+            
+                break;
+                
+            case SEMICOLON:
+                if (node.expression)
+                    context.result = getValue(execute(node.expression, context));                
+                break;
+            
+            case TRUE:
+                value = true;
+                break;
+            
+            case FALSE:
+                value = false;
+                break
+            
+            case NULL: 
+                value = null;
+                break;
+            
+            case THIS:
+                value = context.thisObject;
+                break;            
+            
+            default:
+                throw 'Not Implemented: ' + node.type + ' ' + Narcissus.definitions.tokens[node.type];
+        }
+        
+        return value;
+    }
+
+    
+    
+    function evaluate(s, f, l) {
+        if (typeof s !== "string")
+            return s;
+
+        var x = new ExecutionContext(GLOBAL_CODE);        
+        x.execute(parser.parse(new parser.DefaultBuilder, s, f, l));
+        return x.result;
+    }
+    
+    
+    return {
+        evaluate: evaluate
+    };
     
 })();

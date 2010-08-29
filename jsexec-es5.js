@@ -33,22 +33,21 @@ Narcissus.interpreter = (function () {
         return this.node.getSource();
     }
 
-    function getValue(v) {
+    function GetValue(v) {
         if (v instanceof Reference) {
             if (!v.base) {
-                throw new ReferenceError(v.propertyName + " is not defined",
-                                         v.node.filename, v.node.lineno);
+                throw new ReferenceError(v.propertyName + " is not defined", v.node.filename, v.node.lineno);
             }
+            
             return v.base.Get(v.propertyName);
         }
         return v;
     }
 
-    function putValue(v, w, vn) {
+    function PutValue(v, w, vn) {
         if (v instanceof Reference)
             return (v.base || globalObject).Put(v.propertyName, w, true);
-        throw new ReferenceError("Invalid assignment left-hand side",
-                                 vn.filename, vn.lineno);
+        throw new ReferenceError("Invalid assignment left-hand side", vn.filename, vn.lineno);
     }
 
 
@@ -245,25 +244,26 @@ Narcissus.interpreter = (function () {
 
             /* ToDo */
             
-            throw 'ToDo'
+            throw 'ToDo DefineOwnProperty';
+            
         },
 
 
         /* Extended */
 
         DefineNativeFunction: function (name, length, func) {
-            var func;
+            var funcObject;
 
             /* ToDo The real logic */
 
-            func = new (Narcissus.ObjectFunctionInstance);
-            func.DefineOwnProperty('length',
+            funcObject = new (Narcissus.ObjectFunctionInstance);
+            funcObject.DefineOwnProperty('length',
                 {Value: length, Enumerable: false, Configurable: false, Writable: false});
-            func.Native = true;
-            func.Call = func;
+            funcObject.Native = true;
+            funcObject.Call = func;
 
             o = {};
-            o.Value = func;
+            o.Value = funcObject;
             o.Writable = true;
             o.Enumerable = false;
             o.Configurable = true;
@@ -345,21 +345,124 @@ Narcissus.interpreter = (function () {
     extend(Narcissus.ObjectFunctionInstance, Narcissus.Object, {
         Class: 'Function',
         Extensible: true,
-        Prototype: Narcissus.ObjectFunctionProtype,
+        
+        Scope: undefined,
+        ThisObject: null,
+        COde: undefined,
+        FormalParamaters: [],
+        Strict: false,
 
-        Call: function (thisArg, args) {
-
+        Call: function (thisArg, args, context) {
+            var functionContext, argsObject, scopeObject;
+            
+            functionContext = new ExecutionContext(FUNCTION_CODE);
+            
+            if (this.Strict) {
+                functionContext.thisObject = thisArg || null;
+            }
+            else {            
+                functionContext.thisObject = thisArg || globalObject;
+            }
+            
+            /* old code */
+            functionContext.caller = context;
+            functionContext.callee = this;
+            
+            /* ToDo Some kind of scope object */
+            scopeObject = new (Narcissus.ObjectObjectInstance);
+            scopeObject.Prototype = null;
+            scopeObject.Class = 'Scope';
+            
+            
+            /* ToDo  Arguments Object - This is !not! the real logic*/
+            argsObject = new (Narcissus.ObjectObjectInstance);
+            argsObject.Prototype = null; /* Fixme */
+            argsObject.Class = 'Arguments';
+                        
+            
+            for (var i = 0; i < args.length; i++) {
+                argsObject.DefineOwnProperty(ToString(i), 
+                    {Value: args[i], Configurable: false, Writable: false, Enumerable: false});
+                
+                /* Define Formal Parameters */
+                if (this.FormalParameters[i]) {
+                    scopeObject.DefineOwnProperty(this.FormalParameters[i],
+                        {Value: args[i], Configurable: false, Writable: true, Enumerable: false});                    
+                }
+            }
+            
+            argsObject.DefineOwnProperty('length', 
+                    {Value: args[i], Configurable: false, Writable: false, Enumerable: false});
+                    
+            argsObject.DefineOwnProperty('callee', 
+                    {Value: this, Configurable: false, Writable: false, Enumerable: false});
+            
+            argsObject.Extensible = false;
+            
+            
+            scopeObject.DefineOwnProperty('arguments', 
+                {Value: this, Configurable: false, Writable: false, Enumerable: false});
+                
+            functionContext.scope = {scope: scopeObject, parent: this.Scope};
+            
+            /* Let the party start */
+            
+            try {
+                functionContext.execute(this.Code)
+            }
+            catch (e) {
+                if (e === RETURN) {
+                    return functionContext.result;
+                }
+                else {
+                    throw e;
+                }
+            }
+            
+            return undefined;
+        },
+        
+        Construct: function (thisArg, args, context) {
         }
     });
+    
+    function createFunction (node, context) {
+        var func, proto;
+        
+        func = new (Narcissus.ObjectFunctionInstance);
+        func.Scope = context.scope;
+        func.Code = node.body;
+        
+        func.FormalParameters = node.params;
+        
+        func.DefineOwnProperty('length', 
+            {Value: node.params.length, Enumerable: false, Writable: true, Configurable: true});
+            
+        
+        proto = new (Narcissus.ObjectObjectInstance);
+        proto.DefineOwnProperty('constructor', 
+            {Value: func, Enumerable: false, Writable: true, Configurable: true});
+            
+        func.DefineOwnProperty('prototype', 
+            {Value: proto, Enumerable: false, Writable: true, Configurable: false});            
+        
+        
+        /*
+        if (func.Strict) {
+        }
+        */
+        
+        return func;
+    }
 
 
     /* Object */
 
     Narcissus.ObjectObjectConstructor = function () {
         this.Properties = {};
-        this.DefineOwnProperty('prototype',
-            {Value: Narcissus.ObjectObjectPrototype, Enumerable: false, Writable: true, Configurable: true});
-
+        
+        this.DefineOwnProperty('prototype', 
+            {Value: Narcissus.ObjectObjectPrototype, Enumerable: false, Writable: false, Configurable: false});
 
         this.DefineNativeFunction('keys', 0, function keys (thisArg, args) {});
         this.DefineNativeFunction('create', 0, function keys (thisArg, args) {});
@@ -368,7 +471,6 @@ Narcissus.interpreter = (function () {
     extend(Narcissus.ObjectObjectConstructor, Narcissus.Object, {
         Class: 'Function',
         Extensible: true,
-        Prototype: Narcissus.ObjectFunctionPrototype,
 
         Call: function (thisArg, args) {
             return this.Construct(thisArg, args);
@@ -385,7 +487,6 @@ Narcissus.interpreter = (function () {
     Narcissus.ObjectObjectPrototype = function () {
         this.Properties = {};
 
-
         this.DefineNativeFunction('toString', 0, function toString (thisArg, args) {
             var class;
 
@@ -401,9 +502,7 @@ Narcissus.interpreter = (function () {
 
     extend(Narcissus.ObjectObjectPrototype, Narcissus.Object, {
         Class: 'Object',
-        Extensible: true,
-        Prototype: null
-
+        Extensible: true
     });
 
 
@@ -416,8 +515,7 @@ Narcissus.interpreter = (function () {
 
     extend(Narcissus.ObjectObjectInstance, Narcissus.Object, {
         Class: 'Object',
-        Extensible: true,
-        Prototype: Narcissus.ObjectObjectPrototype
+        Extensible: true
     });
 
     /* Array */
@@ -425,18 +523,17 @@ Narcissus.interpreter = (function () {
     
     Narcissus.ObjectArrayConstructor = function () {
         this.Properties = {};
+
+        this.DefineOwnProperty('prototype', 
+            {Value: Narcissus.ObjectArrayPrototype, Enumerable: false, Writable: false, Configurable: false});
         
         this.DefineOwnProperty('length',
-            {Value: 1, Enumerable: false, Writable: true, Configurable: true});        
-            
-        this.DefineOwnProperty('prototype',
-            {Value: Narcissus.ObjectArrayPrototype, Enumerable: false, Writable: true, Configurable: true});            
+            {Value: 1, Enumerable: false, Writable: true, Configurable: true});                             
     }
     
     extend(Narcissus.ObjectArrayConstructor, Narcissus.Object, {
         Class: 'Function',
         Extensible: true,
-        Prototype: Narcissus.ObjectFunctionPrototype,
         
         Call: function (thiArg, args) {
         },
@@ -455,7 +552,6 @@ Narcissus.interpreter = (function () {
     extend(Narcissus.ObjectArrayPrototype, Narcissus.Object, {
         Class: 'Array',
         Extensible: true,
-        Prototype: Narcissus.ObjectObjectPrototype
     });
     
     
@@ -464,22 +560,41 @@ Narcissus.interpreter = (function () {
     Narcissus.ObjectArrayInstance = function () {
         this.Properties = {};
         
-        /* Hack */
-        //this.Properties['length']
+        /* Hack this.Properties['length'] */
     };
 
     extend(Narcissus.ObjectArrayInstance, Narcissus.Object, {
         Class: 'Array',
         Extensible: true,
-        Prototype: Narcissus.ObjectArrayPrototype,
         
         DefineOwnProperty: function (P, Desc, Throw) {
             
-            throw 'ToDo'
+            throw 'ToDo Array#DefineOwnProperty'
             
         }
     });    
     
+    
+    /* String */
+    
+    Narcissus.ObjectStringConstructor = function () {
+        this.Properties = {};
+        
+        this.DefineOwnProperty('length',
+            {Value: 1, Enumerable: false, Writable: true, Configurable: true});     
+    }
+    
+    extend(Narcissus.ObjectStringConstructor, Narcissus.Object, {
+        Class: 'Function',
+        Extensible: true,
+        
+        Call: function (thisArg, args) {
+        },
+        
+        Construct: function (thisArg, args) {
+        }
+        
+    });
 
     var globals = {
         'Object': new (Narcissus.ObjectObjectConstructor),
@@ -519,7 +634,7 @@ Narcissus.interpreter = (function () {
     /* ==== Set Up Object ==== */
     globalObject.DefineOwnProperty('Object',
         {Value: globals['Object'], Writable: true, Enumerable: false, Configurable: true});
-
+    
     globals['Object'].Prototype = globals['Function#prototype'];
     globals['Object'].Properties['prototype'].Value = globals['Object#prototype'];
     globals['Object#prototype'].Prototype = null;
@@ -549,18 +664,118 @@ Narcissus.interpreter = (function () {
     
     Narcissus.ObjectArrayInstance.prototype.Prototype = globals['Array#prototype'];
     
+    /*  ==== Set Up String ==== */
+    
     
     
     /* Tests */
 
     /* ToDo Function Stubs (Hackzzzz) */
 
-    function ToObject (x) {
-        return Object(x);
+    function ToPrimitive (Input, PreferredType) {
+        var type;
+        
+        if (Input === null || Input === undefined)
+            return x;
+        type = typeof Input;
+        
+        if (type == 'string' || type == 'number' || type == 'boolean')
+            return Input;
+            
+        if (type == 'function')
+            throw 'Did not except function type in ToPrimitive'
+            
+        
+        return Input.DefaultValue(PreferredType);
+    }
+    
+    function ToBoolean (Input) {
+        var type;
+        
+        if (Input === null || Input === undefined)
+            return false;
+            
+        type = typeof Input;
+        
+        if (type == 'boolean')
+            return Input;
+        
+        if (type == 'number')
+            return Boolean(Input);
+        
+        if (type == 'string')
+            return (Input.length > 0);
+            
+        if (type == 'function')
+            throw 'Did not except function type in ToBoolean'        
+        
+        /* must be object */    
+        return true;
+    }
+    
+    function ToNumber (Input) {
+        var type;
+        
+        type = typeof Input;
+        
+        if (type == 'function')
+            throw 'Did not except function type in ToNumber'        
+            
+        if (type == 'object' && Input !== null)
+            return ToNumber(ToPrimitve(Input, 'Number'));            
+            
+        return Number(Input);
+    }
+
+    function ToObject (Input) {
+        var type, object;
+        
+        if (Input === null || Input === undefined)
+            throw TypeError;
+            
+        type = typeof Input;
+        
+        if (type == 'boolean') {
+            object = new (Narcissus.ObjectBooleanInstance);
+            object.PrimitiveValue = Input;
+            return object;
+        }
+        if (type == 'string') {
+            object = new (Narcissus.ObjectStringInstance);
+            object.PrimitiveValue = Input;
+            return object;            
+        }
+        if (type == 'number') {
+            object = new (Narcissus.ObjectNumberInstance);
+            object.PrimitiveValue = Input;
+            return object;            
+        }
+        
+        if (type == 'function')
+            throw 'Did not except function type in ToObject'           
+        
+        /* must be object */
+        return Input;
     }
 
     function IsCallable(func) {
-        return !!ToObject(x).Call;
+        var type = typeof func;
+        
+        if (type != 'object')
+            return false;
+            
+        return func.Call !== undefined;
+    }
+    
+    function ToString (x) {
+        console.error('Fixme ToString');
+        
+        return String(x);
+    }
+    
+    function IsPrimitive (v) {
+        var t = typeof v;
+        return (t === "object") ? v === null : t !== "function";
     }
 
     /* Helper */
@@ -639,7 +854,7 @@ Narcissus.interpreter = (function () {
 
     function execute(node, context) {
         var a, f, i, j, r, s, t, u, v;
-        var value;
+        var value, args;
 
 
         console.log(Narcissus.definitions.tokens[node.type]);
@@ -669,21 +884,65 @@ Narcissus.interpreter = (function () {
                 }
 
                 break;
+            
+            case LIST:
+                value = [];
+                for (i = 0, j = node.length; i < j; i++) {
+                    value.push(GetValue(execute(node[i], context)));
+                }
+                break;
+                
+            case CALL:
+                r = execute(node[0], context);
+                args = execute(node[1], context);
+                
+                f = ToObject(GetValue(r)); /* Fixme Todo*/
+                if (f.Call === undefined) {
+                    throw TypeError('Not an function');
+                }
+                
+                thisArg = (r instanceof Reference) ? r.base : null;
+                value = f.Call(thisArg, args, context);
+                break;
 
             case SEMICOLON:
                 if (node.expression)
-                    context.result = getValue(execute(node.expression, context));
+                    context.result = GetValue(execute(node.expression, context));
+                break;
+            
+            case ASSIGN:
+                r = execute(node[0], context);                
+                value = GetValue(execute(node[1], context));
+                
+                if (node.assignOp) {                    
+                    throw 'ToDo ASSING';
+                }
+                
+                PutValue(r, value, node[0]);
                 break;
             
             case DOT:
                 r = execute(node[0], context);
-                t = getValue(r);
+                t = GetValue(r);
                 u = node[1].value;
                 
                 value = new Reference(ToObject(t), u, node);
                 break;
+            
+            case INDEX:
+                r = execute(node[0], context);
+                t = GetValue(r);
+                u = node[1].value;
                 
-            //case ARRAY_INIT:
+                value = new Reference(ToObject(t), ToString(u), node);
+                break;                
+                
+            
+            case UNARY_PLUS:
+            
+
+                
+            /* case ARRAY_INIT: */
 
             case OBJECT_INIT:
                 value = new (Narcissus.ObjectObjectInstance);
@@ -696,7 +955,7 @@ Narcissus.interpreter = (function () {
                             Enumerable: true, 
                             Configurable: true, 
                             Writable: true, 
-                            Value: getValue(execute(t[1], context))
+                            Value: GetValue(execute(t[1], context))
                         });
                     }
                     else { /* Getter / Setter */

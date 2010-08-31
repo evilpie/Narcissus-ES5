@@ -58,6 +58,10 @@ Narcissus.interpreter = (function () {
 
         Get: function (P) {
             var desc, getter;
+            
+            /* i dont like to implement setter / getters for every element */
+            if (ToString(P) === '__proto__')
+                return this.Prototype;
 
             desc = this.GetProperty(P);
             if (desc === undefined)
@@ -118,7 +122,22 @@ Narcissus.interpreter = (function () {
         },
 
         Put: function (P, V, Throw) {
-            var desc, ownDesc, valueDesc;
+            var desc, ownDesc, valueDesc, next;
+            
+            /* same as Get */
+            if (ToString(P) === '__proto__') {
+                if (typeof V !== 'object' /* && v !== null */) /* simply ingnore as mozilla does it */
+                    return;
+                
+                next = V.Protype;
+                while (next && typeof next === 'object') {
+                    if (next === this)
+                        throw TypeError('cyclic __proto__ value');
+                    next = next.Prototype;
+                }
+                
+                this.Prototype = V;
+            }    
 
             if (!this.CanPut(P)) {
                 if (Throw)
@@ -138,6 +157,7 @@ Narcissus.interpreter = (function () {
             desc = this.GetProperty(P);
             if (IsAccessorDescriptor(desc)) {
                 desc.Set.Call(this, [V]);
+                return;
             }
 
             desc = {Value: V, Writable: true, Enumerable: true, Configurable: true};
@@ -630,8 +650,34 @@ Narcissus.interpreter = (function () {
         this.DefineOwnProperty('prototype', 
             {Value: null, Enumerable: false, Writable: false, Configurable: false});   
 
-        this.DefineNativeFunction('keys', 0, function keys (thisArg, args) {});
-        this.DefineNativeFunction('create', 0, function keys (thisArg, args) {});
+        this.DefineNativeFunction('getPrototypeOf', 1, function (thisArg, args) {            
+            if (typeof args[0] !== 'object' || args[0] === null)
+                throw TypeError('you must provide an object as argument');
+            
+            return args[0].Prototype;
+        });
+        
+        this.DefineNativeFunction('getOwnPropertyNames', 1, function (thisArg, args) {
+            var O = args[0], array, i;
+            
+            if (typeof O !== 'object'  || o === null)
+                throw TypeError('you must provide an object as argument'); 
+            
+            array = new (Narcissus.ObjectArrayInstance);
+            i = 0;
+            for (key in O.Properties) {
+                if (O.Properties.hasOwnProperty(key)) {
+                    array.Put(String(i), ToString(key));
+                }
+                i += 1;
+            }
+            
+            return array;
+        });
+        
+        this.DefineNativeFunction('create', 1, function (thisArg, args) {
+            
+        });
     };
 
     extend(Narcissus.ObjectObjectConstructor, Narcissus.Object, {
@@ -824,8 +870,8 @@ Narcissus.interpreter = (function () {
     Narcissus.ObjectArrayInstance = function () {
         this.Properties = {};
         
-        console.log(Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', 
-            {Value: 0, Writable: true, Enumerable: false, Configurable: false}, false]));
+        Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', 
+            {Value: 0, Writable: true, Enumerable: false, Configurable: false}, false]);
     };
 
     extend(Narcissus.ObjectArrayInstance, Narcissus.Object, {
@@ -1313,10 +1359,7 @@ Narcissus.interpreter = (function () {
     
     
     Narcissus.ObjectBooleanInstance.prototype.Prototype = globals['Boolean#prototype'];       
-    
-    console.log(globals['Array'].Properties['prototype']);
-    console.log(globals['Array#prototype']);
-    
+
     function ToPrimitive (Input, PreferredType) {
         var type;
         

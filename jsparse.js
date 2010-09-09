@@ -852,15 +852,21 @@ Narcissus.parser = (function() {
         var n = Statements(t, x);
         n.type = SCRIPT;
         n.funDecls = x.funDecls;
-        n.varDecls = x.varDecls;
+        n.varDecls = x.varDecls;        
+        
+        if (n[0] && n[0].type === SEMICOLON && n[0].value === 'use strict')
+			n.strict = true;
+		else
+			n.strict = false;
+        
         return n;
     }
 
-    // Node extends Array, which we extend slightly with a top-of-stack method.
-    definitions.defineProperty(Array.prototype, "top",
-                   function() {
-                       return this.length && this[this.length-1];
-                   }, false, false, true);
+    // Node extends Array, which we extend slightly with a top-of-stack method.    
+    Array.prototype.top = function () {
+		return this.length && this.length[this.length - 1];
+	};               
+                   
 
     /*
      * Node :: (tokenizer, optional type) -> node
@@ -928,19 +934,22 @@ Narcissus.parser = (function() {
     Np.getSource = function () {
         return this.tokenizer.source.slice(this.start, this.end);
     };
-
+	
+	
+	/*
     definitions.defineGetter(Np, "filename",
                  function() {
                      return this.tokenizer.filename;
                  });
-
-    definitions.defineProperty(String.prototype, "repeat",
-                   function(n) {
-                       var s = "", t = this + s;
-                       while (--n >= 0)
-                           s += t;
-                       return s;
-                   }, false, false, true);
+    */
+        
+    String.prototype.repeat = function (n) {
+		var s = "", t = this + s;
+		while (--n >= 0)
+			s += t;
+			
+		return s;
+	};
 
     // Statement stack and nested statement handler.
     function nest(t, x, node, func, end) {

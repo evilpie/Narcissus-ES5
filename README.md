@@ -21,6 +21,7 @@ ToDo:
 -----
 
 - implement all functions of the object like String.fromCharCode, Object.getPrototypeOf
+- implement Error Objects
 - function and var definitions
 - all operators like + - * /
 - strict mode

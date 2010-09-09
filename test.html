@@ -5,20 +5,34 @@
     <script src="jslex.js"></script>
     <script src="jsparse.js"></script>    
     <script src="jsexec-es5.js"></script>
+    <style>
+		#code {
+			width: 400px;
+			height: 100px;
+		}
+    </style>
 </head>
 <body>
 
 <textarea id="code"></textarea>
 <button onclick="execute(event)">Execute</button>
+<div id="output"></div>
 
 <script>
 function execute() {    
-    var v, code = document.getElementById('code');
+    var v, code = document.getElementById('code'), 
+		output = document.getElementById('output');
     
-    v = Narcissus.interpreter.evaluate(code.value);
-    
-    console.log('Result: ');
-    console.log(v);
+    try {
+		v = Narcissus.interpreter.evaluate(code.value);
+	}
+	catch (e) {
+		output.innerHTML += 'Error: ' + e + '<br>';
+		console && console.log(e);
+		return;
+	}
+	console && console.log(v);
+	output.innerHTML += 'Result: ' + v + '<br>';
 }
 </script>
 

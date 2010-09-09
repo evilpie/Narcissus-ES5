@@ -597,6 +597,21 @@ Narcissus.interpreter = (function () {
         },
         
         Construct: function (thisArg, args, context) {
+			var obj, proto, result;
+			
+			obj = new (Narcissus.ObjectObjectInstance);			
+			proto = this.Get('prototype');
+			
+			if (typeof proto != 'object' || proto === null)
+				obj.Prototype = globals['Object#prototype'];
+			else
+				obj.Prototype = proto;
+				
+			result = this.Call(obj, args, context);
+			if (typeof result == 'object' && result !== null)
+				return result;
+				
+			return obj;
         },
         
         HasInstance: function (V) {
@@ -1706,14 +1721,34 @@ Narcissus.interpreter = (function () {
                 r = execute(node[0], context);
                 args = execute(node[1], context);
                 
-                f = ToObject(GetValue(r)); /* Fixme Todo*/
-                if (f.Call === undefined) {
-                    throw TypeError('Not an function');
+                f = GetValue(r);
+                if (IsPrimitive(f) || f.Call === undefined) {
+                    throw TypeError('not a function');
                 }
                 
                 thisArg = (r instanceof Reference) ? r.base : null;
                 value = f.Call(thisArg, args, context);
                 break;
+                
+            case NEW:
+            case NEW_WITH_ARGS:
+				r = execute(node[0], context);
+				f = GetValue(r);
+				
+				if (IsPrimitive(f) || f.Construct === undefined) {
+					throw TypeError('not an constructor');
+				}								
+				
+				if (node.type === NEW_WITH_ARGS)
+					args = execute(node[1], context);
+				else
+					args = [];
+				
+				console.log('args', args);
+				
+				value = f.Construct(null, args, context);
+				break;
+					
                 
 			case RETURN:
 				context.result = GetValue(execute(node.value, context));

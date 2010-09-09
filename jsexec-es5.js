@@ -1366,7 +1366,7 @@ Narcissus.interpreter = (function () {
         var type;
         
         if (Input === null || Input === undefined)
-            return x;
+            return Input;
         type = typeof Input;
         
         if (type == 'string' || type == 'number' || type == 'boolean')
@@ -1415,13 +1415,6 @@ Narcissus.interpreter = (function () {
             
         return Number(Input);
     }
-    
-    function ToInt32 (Input) {
-		var number;
-		
-		number = ToNumber(Input);
-		throw 'ToDo ToInt32';
-	}
     
     function ToString (Input) {
         var type;
@@ -1502,6 +1495,50 @@ Narcissus.interpreter = (function () {
             
         return x === y;
     }
+    
+    function IsEqual (x, y) {
+		var typex = typeof x, typey = typeof y;
+		
+		if (x === null && y === null) {
+			return true;
+		}
+		else if (x === undefined && y === undefined) {
+			return true;
+		}
+		
+		if (x === null && y === undefined)
+			return true;
+		if (x === undefined && y === null)
+			return true;
+		
+		if (typex == typey) {
+			if (typex == 'number')
+				return x == y;
+			else if (typex == 'string')
+				return x == y;
+			else if (typex == 'boolean')
+				return x == y;
+			
+			return x === y;
+		}
+		
+		if (typex == 'number' && typey == 'string')
+			return IsEqual(x, ToNumber(y));
+		if (typex == 'string' && typey == 'number')
+			return IsEqual(ToNumber(x), y);
+		if (typex == 'boolean')
+			return IsEqual(ToNumber(x), y);			
+		if (typey == 'boolean')
+			return IsEqual(x, ToNumber(y));
+		
+		if ((typex == 'string' || typex == 'number') && typey == 'object' && y !== null)
+			return IsEqual(x, ToPrimitive(y));
+			
+		if (typex == 'object' && x !== null && (typey == 'string' || typey == 'number'))
+			return IsEqual(ToPrimitive(x), y);			
+		
+		return false;
+	}
 
     /* Helper */
 
@@ -1657,7 +1694,7 @@ Narcissus.interpreter = (function () {
 					execute(node.elsePart, context);
 				}
 				break;
-            
+
             case LIST:
                 value = [];
                 for (i = 0, j = node.length; i < j; i++) {
@@ -1721,8 +1758,7 @@ Narcissus.interpreter = (function () {
                 value = new Reference(ToObject(t), ToString(u), node);
                 break;                                           
             
-            /* Unary Operators */
-                
+            /* Unary Operators */                
             case DELETE:
 				throw 'ToDo';
             
@@ -1740,19 +1776,7 @@ Narcissus.interpreter = (function () {
                 if (value === 'object' && t !== null && t.Call !== undefined)
                     value = 'function';
                 
-                break;
-                
-            case INSTANCEOF:
-                t = GetValue(execute(node[0], context));
-                u = GetValue(execute(node[1], context));
-                
-                if (typeof u !== 'object' || u === null)
-                    throw TypeError('invalid operand for instanceof');
-                    
-                if (u.HasInstance === undefined)
-                    throw TypeError('invalid operand for instanceof');
-                    
-                return u.HasInstance(t);                         
+                break;                                     
 
             case UNARY_PLUS:
                 value = ToNumber(GetValue(execute(node[0], context)));
@@ -1763,7 +1787,7 @@ Narcissus.interpreter = (function () {
                 break;
 
 			case BITWISE_NOT:
-				value = ~ToInt32(GetValue(execute(node[0], context)));
+				value = ~ToNumber(GetValue(execute(node[0], context)));
 				break;
             
             case NOT:
@@ -1771,8 +1795,7 @@ Narcissus.interpreter = (function () {
 				break;
 				
 			
-			/* Multiplicative Operators */
-			
+			/* Multiplicative Operators */			
 			case MUL:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
@@ -1809,9 +1832,50 @@ Narcissus.interpreter = (function () {
 					value = ToNumber(t) + ToNumber(u);
                 
                 break;				
-                            
+                
+            case MINUS:
+				t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                value = ToNumber(t) - ToNumber(u);
+                break;
+                
+               
+            /* Bitwise Shift Operators */            
+            case LSH:
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                value = ToNumber(t) << ToNumber(u);
+                break; 
+                
+            case RSH:
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                value = ToNumber(t) >> ToNumber(u);
+                break;                 
+
+
+            case URSH:
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                value = ToNumber(t) >>> ToNumber(u);
+                break; 
                 
             /* Relational Operators */
+            case INSTANCEOF:
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                if (typeof u !== 'object' || u === null)
+                    throw TypeError('invalid operand for instanceof');
+                    
+                if (u.HasInstance === undefined)
+                    throw TypeError('invalid operand for instanceof');
+                    
+                return u.HasInstance(t);  
 
             case IN:
 				t = GetValue(execute(node[0], context));
@@ -1822,7 +1886,36 @@ Narcissus.interpreter = (function () {
 					
 				value = u.HasProperty(ToString(t));
 				break;
-
+				
+			/* Equality Operators */
+			case EQ:
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                value = IsEqual(t, u);
+                break;
+            
+            case NE:  		
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                value = !IsEqual(t, u);
+                break;
+                                
+            case STRICT_EQ:
+				t = GetValue(execute(node[0], context));
+				u = GetValue(execute(node[1], context));
+				
+				value = (t === u);
+				break;
+				
+            case STRICT_NE:
+				t = GetValue(execute(node[0], context));
+				u = GetValue(execute(node[1], context));
+				
+				value = (t !== u);
+				break;				
+                        
                 
             case ARRAY_INIT:
                 value = new (Narcissus.ObjectArrayInstance);

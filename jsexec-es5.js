@@ -216,36 +216,41 @@ Narcissus.interpreter = (function () {
             if (hint === 'String') {                
                 toString = this.Get('toString');
                 
-                if (IsCallable(toString))
+                if (IsCallable(toString)) {
                     str = toString.Call(this);
                 
-                if (IsPrimitive(str))
-                    return str;
+					if (IsPrimitive(str))
+						return str;
+				}
                     
                 valueOf = this.Get('valueOf');
                 
-                if (IsCallable(valueOf))
+                if (IsCallable(valueOf)) {
                     val = valueOf.Call(this);
                 
-                if (IsPrimitive(vale))
-                    return val;
+					if (IsPrimitive(val))
+						return val;
+				}
             }
             else {
                 valueOf = this.Get('valueOf');
                 
-                if (IsCallable(valueOf))
+                if (IsCallable(valueOf)) {
                     val = valueOf.Call(this);
                 
-                if (IsPrimitive(vale))
-                    return val;                   
+					if (IsPrimitive(val))
+						return val;
+				}                   
                 
                 toString = this.Get('toString');
                 
-                if (IsCallable(toString))
+                if (IsCallable(toString)) {
                     str = toString.Call(this);
                 
-                if (IsPrimitive(str))
-                    return str;                       
+					if (IsPrimitive(str))
+						return str;
+						
+				}						
             }
             
             throw TypeError('Object could not be converted to ' + hint);
@@ -1411,6 +1416,13 @@ Narcissus.interpreter = (function () {
         return Number(Input);
     }
     
+    function ToInt32 (Input) {
+		var number;
+		
+		number = ToNumber(Input);
+		throw 'ToDo ToInt32';
+	}
+    
     function ToString (Input) {
         var type;
         type = typeof Input;
@@ -1708,6 +1720,8 @@ Narcissus.interpreter = (function () {
                 
                 value = new Reference(ToObject(t), ToString(u), node);
                 break;                                           
+            
+            /* Unary Operators */
                 
             case DELETE:
 				throw 'ToDo';
@@ -1738,8 +1752,67 @@ Narcissus.interpreter = (function () {
                 if (u.HasInstance === undefined)
                     throw TypeError('invalid operand for instanceof');
                     
-                return u.HasInstance(t);             
+                return u.HasInstance(t);                         
+
+            case UNARY_PLUS:
+                value = ToNumber(GetValue(execute(node[0], context)));
+                break;
+                
+            case UNARY_MINUS:
+                value = -ToNumber(GetValue(execute(node[0], context)));
+                break;
+
+			case BITWISE_NOT:
+				value = ~ToInt32(GetValue(execute(node[0], context)));
+				break;
             
+            case NOT:
+				value = !ToBoolean(GetValue(execute(node[0], context)));
+				break;
+				
+			
+			/* Multiplicative Operators */
+			
+			case MUL:
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                value = ToNumber(t) * ToNumber(u);
+                break;
+               
+            case DIV:
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                value = ToNumber(t) / ToNumber(u);
+                break;            
+                
+            case MOD:
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                value = ToNumber(t) % ToNumber(u);
+                break;            
+            
+            /* Additive Operators */
+            case PLUS:
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                
+                t = ToPrimitive(t);
+                u = ToPrimitive(u);
+                
+                if (typeof t == 'string' || typeof u == 'string')
+					value = ToString(t) + ToString(u);
+				else
+					value = ToNumber(t) + ToNumber(u);
+                
+                break;				
+                            
+                
+            /* Relational Operators */
+
             case IN:
 				t = GetValue(execute(node[0], context));
 				u = GetValue(execute(node[1], context));
@@ -1748,23 +1821,8 @@ Narcissus.interpreter = (function () {
 					throw TypeError('right operand of in must be an object');
 					
 				value = u.HasProperty(ToString(t));
-				break
-				
-			case STRICT_EQ:
-				throw 'ToDo';
 				break;
-            
-            case NOT:
-				value = !ToBoolean(GetValue(execute(node[0], context)));
-				break;
-                
-            case UNARY_PLUS:
-                value = ToNumber(GetValue(execute(node[0], context)));
-                break;
-                
-            case UNARY_MINUS:
-                value = -ToNumber(GetValue(execute(node[0], context)));
-                break;
+
                 
             case ARRAY_INIT:
                 value = new (Narcissus.ObjectArrayInstance);

@@ -9,7 +9,7 @@ This is an interpreter rewrite of the original Narcissus js-js interpreter creat
 Implementation Status:
 ---------------------
 
-- Basic Object Functions like [[Get]] , [[Call]] or [[HasInstance]] are implemented
+- Basic Object Functions like [[Get]] , [[ Call]] or [[HasInstance]] are implemented
 - The Objects 'String', 'Number', 'Object', 'Function' and 'Boolean' are defined
 - assignment without a previous var declaration works
 - typeof, instanceof

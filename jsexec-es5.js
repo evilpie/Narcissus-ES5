@@ -34,7 +34,7 @@ Narcissus.interpreter = (function () {
             if (!v.base) {
                 throw new ReferenceError(v.propertyName + ' is not defined', v.node.filename, v.node.lineno);
             }
-            
+
             return v.base.Get(v.propertyName);
         }
         return v;
@@ -62,7 +62,7 @@ Narcissus.interpreter = (function () {
             desc = this.GetProperty(P);
             if (desc === undefined)
                 return undefined;
-                
+
 
             if (IsDataDescriptor(desc))
                 return desc.Value;
@@ -76,7 +76,7 @@ Narcissus.interpreter = (function () {
 
         GetOwnProperty: function (P) {
             var D, X;
-            
+
             if (!this.Properties.hasOwnProperty(P))
                 return undefined;
 
@@ -98,7 +98,7 @@ Narcissus.interpreter = (function () {
 
             D.Enumerable = X.Enumerable;
             D.Configurable = X.Configurable;
-            
+
             return D;
         },
 
@@ -106,7 +106,7 @@ Narcissus.interpreter = (function () {
             var prop, proto;
 
             prop = this.GetOwnProperty(P);
-            
+
             if (prop)
                 return prop;
 
@@ -119,21 +119,21 @@ Narcissus.interpreter = (function () {
 
         Put: function (P, V, Throw) {
             var desc, ownDesc, valueDesc, next;
-            
+
             /* same as Get */
             if (ToString(P) === '__proto__') {
                 if (typeof V !== 'object' || V === null) /* simply ingnore as mozilla does it */
                     return;
-                
+
                 next = V.Protype;
                 while (next && typeof next === 'object') {
                     if (next === this)
                         throw TypeError('cyclic __proto__ value');
                     next = next.Prototype;
                 }
-                
+
                 this.Prototype = V;
-            }    
+            }
 
             if (!this.CanPut(P)) {
                 if (Throw)
@@ -212,47 +212,47 @@ Narcissus.interpreter = (function () {
 
         DefaultValue: function (hint) {
             var toString, valueOf, str, val;
-            
-            if (hint === 'String') {                
+
+            if (hint === 'String') {
                 toString = this.Get('toString');
-                
+
                 if (IsCallable(toString)) {
                     str = toString.Call(this);
-                
-					if (IsPrimitive(str))
-						return str;
-				}
-                    
+
+                    if (IsPrimitive(str))
+                        return str;
+                }
+
                 valueOf = this.Get('valueOf');
-                
+
                 if (IsCallable(valueOf)) {
                     val = valueOf.Call(this);
-                
-					if (IsPrimitive(val))
-						return val;
-				}
+
+                    if (IsPrimitive(val))
+                        return val;
+                }
             }
             else {
                 valueOf = this.Get('valueOf');
-                
+
                 if (IsCallable(valueOf)) {
                     val = valueOf.Call(this);
-                
-					if (IsPrimitive(val))
-						return val;
-				}                   
-                
+
+                    if (IsPrimitive(val))
+                        return val;
+                }
+
                 toString = this.Get('toString');
-                
+
                 if (IsCallable(toString)) {
                     str = toString.Call(this);
-                
-					if (IsPrimitive(str))
-						return str;
-						
-				}						
+
+                    if (IsPrimitive(str))
+                        return str;
+
+                }
             }
-            
+
             throw TypeError('Object could not be converted to ' + hint);
         },
 
@@ -291,69 +291,69 @@ Narcissus.interpreter = (function () {
                 !('Writable' in Desc) && !('Enumerable' in Desc) && !('Writable' in Desc)) {
                 return true;
             }
-            
+
             /* 8.12.9 Step 6 */
-            
+
             check = false;
 
             for (key in Desc) {
                 if (Desc.hasOwnProperty(key) && current[key] === Desc[key])  /* ToDo SameValue */
-                    check = true;                    
+                    check = true;
                 else {
                     check = false;
                     break;
                 }
             }
-            
+
             if (check)
                 return true;
-                
-            if (current.Configurable === false) {                
+
+            if (current.Configurable === false) {
                 if (Desc.Configurable === true)
                     return false;
-                
+
                 if (Desc.hasOwnProperty('Enumerable') && Desc.Enumerable !== current.Enumerable) /* fixme, not sure */
                     return false;
             }
-            
+
             if (IsGenericDescriptor(Desc)) {
                 /* Step 8. No further verification */
-            }                
+            }
             else if (IsDataDescriptor(current) !== IsDataDescriptor(Desc)) {
-                
+
                 if (current.Configurable === false)
                     return false;
-                    
-                if (IsDataDescriptor(current)) {                    
+
+                if (IsDataDescriptor(current)) {
                     delete this.Properties[P]['Value'];
-                    delete this.Properties[P]['Writable'];                    
+                    delete this.Properties[P]['Writable'];
                 }
                 else {
                     delete this.Properties[P]['Set'];
                     delete this.Properties[P]['Get'];
-                }                
+                }
             }
             else if (IsDataDescriptor(current) === IsDataDescriptor(Desc)) {
                 if (current.Configurable === false) {
                     if (current.Writable !== !!Desc.Writable)
                         return false; /* reject */
-                        
+
                     if (current.Writable === false) {
                         if (Desc.hasOwnProperty('Value') && !SameValue(current.Value, Desc.Value))
                             return false; /* reject */
-                    }                    
+                    }
                 }
             }
             else if (IsAccessorDescriptor(current) === IsAccessorDescriptor(Desc)) {
                 if (current.Configurable === false) {
                     if (Desc.hasOwnProperty('Set') && !SameValue(current.Set, Desc.Set))
                         return false;
-                        
+
                     if (Desc.hasOwnProperty('Get') && !SameValue(current.Get, Desc.Get))
                         return false;
                 }
             }
-            
+
             if (Desc.hasOwnProperty('Set'))
                 this.Properties[P].Set = Desc.Set || undefined;
             if (Desc.hasOwnProperty('Get'))
@@ -361,12 +361,12 @@ Narcissus.interpreter = (function () {
             if (Desc.hasOwnProperty('Value'))
                 this.Properties[P].Value = Desc.Value || undefined;
             if (Desc.hasOwnProperty('Writable'))
-                this.Properties[P].Writable = !!Desc.Writable               
+                this.Properties[P].Writable = !!Desc.Writable
             if (Desc.hasOwnProperty('Enumerable'))
-                this.Properties[P].Enumerable = !!Desc.Enumerable;         
+                this.Properties[P].Enumerable = !!Desc.Enumerable;
             if (Desc.hasOwnProperty('Configurable'))
                 this.Properties[P].Configurable = !!Desc.Configurable;
-            
+
             return true;
         },
 
@@ -383,11 +383,11 @@ Narcissus.interpreter = (function () {
             funcObject.Call = func;
 
             proto = new (Narcissus.ObjectObjectInstance);
-            proto.DefineOwnProperty('constructor', 
+            proto.DefineOwnProperty('constructor',
                 {Value: funcObject, Enumerable: false, Writable: true, Configurable: true});
-                    
-            funcObject.DefineOwnProperty('prototype', 
-                {Value: proto, Enumerable: false, Writable: true, Configurable: false});       
+
+            funcObject.DefineOwnProperty('prototype',
+                {Value: proto, Enumerable: false, Writable: true, Configurable: false});
 
             o = {};
             o.Value = funcObject;
@@ -397,29 +397,29 @@ Narcissus.interpreter = (function () {
 
             this.Properties[name] = o;
         },
-        
-        
+
+
         /* hack! this should be in Function.prototype, but because of inheritance ... */
         HasInstance: function (V) {
-            var O;            
-            
+            var O;
+
             if (this.Class !== 'Function')
                 throw TypeError('operand of instanceof must be an function');
-                        
+
             if (typeof V != 'object')
                 return false;
-            
+
             O = this.Get('prototype');
             if (typeof O != 'object')
                 throw TypeError('prototype must be an object');
-            
+
             for (V = V.Prototype; ; V = V.Prototype) {
                 if (V === null)
                     return false;
                 if (O === V)
                     return true;
             }
-        }        
+        }
 
     };
 
@@ -429,12 +429,12 @@ Narcissus.interpreter = (function () {
     Narcissus.ObjectFunctionConstructor = function () {
         this.Properties = {};
 
-        this.DefineOwnProperty('prototype', 
-            {Value: null, Enumerable: false, Writable: false, Configurable: false});           
-        
+        this.DefineOwnProperty('prototype',
+            {Value: null, Enumerable: false, Writable: false, Configurable: false});
+
         this.DefineOwnProperty('length',
             {Value: 1, Enumerable: false, Writable: false, Configurable: false});
-            
+
         this.DefineOwnProperty('prototype',
             {Value: Narcissus.ObjectFunctionPrototype, Enumerable: false, Writable: false, Configurable: false});
     };
@@ -462,38 +462,38 @@ Narcissus.interpreter = (function () {
             {Value: 0, Enumerable: false, Writable: true, Configurable: true});
         this.DefineOwnProperty('constructor',
             {Value: Narcissus.ObjectFunctionConstructor, Enumerable: false, Writable: true, Configurable: true});
-            
-        this.DefineNativeFunction('toString', 0, function (thisArg, args) {            
+
+        this.DefineNativeFunction('toString', 0, function (thisArg, args) {
             if (!IsCallable(thisArg))
-                throw TypeError('Not a function');            
+                throw TypeError('Not a function');
             return thisArg.Native ? '[Native Function]' : '[Function]';
         });
-        
+
         this.DefineNativeFunction('apply', 2, function (thisArg, args) {
             var func = thisArg, thisObject = args[0], argArray = args[1], len, argList = [];
-            
+
             if (!IsCallable(func))
                 throw TypeError('Not a function');
-                
+
             if (argArray === null || argArray === undefined) {
                 return func.Call(thisObject, []);
             }
-            
+
             if (typeof argArray != 'object')
                 throw TypeError('Second argument of apply must be an object');
-            
+
             len = argArray.Get('length');
-            
+
             if (len === null || len === undefined)
                 throw TypeError('Second argument of apply must be an object with an length property');
-                
+
             /* ToDo - throw if not integer*/
-            
+
             for (var i = 0; i < len; i++) {
                 argList.push(argArray.Get(ToString(i)));
             }
-            
-            return func.Call(thisObject, argList);            
+
+            return func.Call(thisObject, argList);
         });
     };
 
@@ -515,7 +515,7 @@ Narcissus.interpreter = (function () {
     extend(Narcissus.ObjectFunctionInstance, Narcissus.Object, {
         Class: 'Function',
         Extensible: true,
-        
+
         Scope: undefined,
         ThisObject: null,
         Code: undefined,
@@ -524,63 +524,63 @@ Narcissus.interpreter = (function () {
 
         Call: function (thisArg, args, context) {
             var functionContext, argsObject, scopeObject;
-            
+
             functionContext = new ExecutionContext(FUNCTION_CODE);
-            
+
             if (this.Strict) {
                 functionContext.thisObject = thisArg || null;
             }
-            else {            
+            else {
                 if (thisArg === null || thisArg === undefined) {
-					functionContext.thisObject = globalObject;
-				}
-				else {
-					functionContext.thisObject = ToObject(thisArg);
-				}
+                    functionContext.thisObject = globalObject;
+                }
+                else {
+                    functionContext.thisObject = ToObject(thisArg);
+                }
             }
-            
+
             /* old code */
             functionContext.caller = context;
             functionContext.callee = this;
-            
+
             /* ToDo Some kind of scope object */
             scopeObject = new (Narcissus.ObjectObjectInstance);
             scopeObject.Prototype = null;
-            scopeObject.Class = 'Scope';            
-            
+            scopeObject.Class = 'Scope';
+
             /* ToDo  Arguments Object - This is !not! the real logic*/
             argsObject = new (Narcissus.ObjectObjectInstance);
             argsObject.Prototype = null; /* Fixme */
             argsObject.Class = 'Arguments';
-            
+
             for (var i = 0; i < args.length; i++) {
-                argsObject.DefineOwnProperty(ToString(i), 
+                argsObject.DefineOwnProperty(ToString(i),
                     {Value: args[i], Configurable: false, Writable: false, Enumerable: false});
-                
+
                 /* Define Formal Parameters */
                 if (this.FormalParameters[i]) {
                     scopeObject.DefineOwnProperty(this.FormalParameters[i],
-                        {Value: args[i], Configurable: false, Writable: true, Enumerable: false});                    
+                        {Value: args[i], Configurable: false, Writable: true, Enumerable: false});
                 }
             }
-            
-            argsObject.DefineOwnProperty('length', 
+
+            argsObject.DefineOwnProperty('length',
                     {Value: args[i], Configurable: false, Writable: false, Enumerable: false});
-                    
-            argsObject.DefineOwnProperty('callee', 
+
+            argsObject.DefineOwnProperty('callee',
                     {Value: this, Configurable: false, Writable: false, Enumerable: false});
-            
+
             argsObject.Extensible = false;
-            
-            
-            scopeObject.DefineOwnProperty('arguments', 
+
+
+            scopeObject.DefineOwnProperty('arguments',
                 {Value: argsObject, Configurable: false, Writable: false, Enumerable: false});
-                
+
             functionContext.scope = {object: scopeObject, parent: this.Scope};
             functionContext.strict = this.Strict;
-            
+
             /* Let the party start */
-            
+
             try {
                 functionContext.execute(this.Code)
             }
@@ -592,86 +592,86 @@ Narcissus.interpreter = (function () {
                     throw e;
                 }
             }
-            
+
             return undefined;
         },
-        
+
         Construct: function (thisArg, args, context) {
-			var obj, proto, result;
-			
-			obj = new (Narcissus.ObjectObjectInstance);			
-			proto = this.Get('prototype');
-			
-			if (typeof proto != 'object' || proto === null)
-				obj.Prototype = globals['Object#prototype'];
-			else
-				obj.Prototype = proto;
-				
-			result = this.Call(obj, args, context);
-			if (typeof result == 'object' && result !== null)
-				return result;
-				
-			return obj;
+            var obj, proto, result;
+
+            obj = new (Narcissus.ObjectObjectInstance);
+            proto = this.Get('prototype');
+
+            if (typeof proto != 'object' || proto === null)
+                obj.Prototype = globals['Object#prototype'];
+            else
+                obj.Prototype = proto;
+
+            result = this.Call(obj, args, context);
+            if (typeof result == 'object' && result !== null)
+                return result;
+
+            return obj;
         },
-        
+
         HasInstance: function (V) {
             var O;
-                        
+
             if (typeof V != 'object')
                 return false;
-            
+
             O = this.Get('prototype');
             if (typeof O != 'object')
                 throw TypeError('prototype must be an object');
-            
+
             for (V = V.Prototype; ; V = V.Prototype) {
                 if (V === null)
                     return false;
                 if (O === V)
                     return true;
             }
-        }        
+        }
     });
-    
+
     function createFunction (node, context) {
         var func, proto;
-        
+
         func = new (Narcissus.ObjectFunctionInstance);
         func.Scope = context.scope;
         func.Strict = context.strict;
-        func.Code = node.body;        
-        
+        func.Code = node.body;
+
         func.FormalParameters = node.params;
-        
-        func.DefineOwnProperty('length', 
+
+        func.DefineOwnProperty('length',
             {Value: node.params.length, Enumerable: false, Writable: true, Configurable: true});
-            
-        
+
+
         proto = new (Narcissus.ObjectObjectInstance);
-        proto.DefineOwnProperty('constructor', 
+        proto.DefineOwnProperty('constructor',
             {Value: func, Enumerable: false, Writable: true, Configurable: true});
-            
-        func.DefineOwnProperty('prototype', 
-            {Value: proto, Enumerable: false, Writable: true, Configurable: false});            
-        
+
+        func.DefineOwnProperty('prototype',
+            {Value: proto, Enumerable: false, Writable: true, Configurable: false});
+
         func.Strict = func.Strict;
         if (func.Code[0] && func.Code[0].value === 'use strict') {
-			func.Strict = true;
-		}
-        
+            func.Strict = true;
+        }
+
         if (func.Strict) {
-			for (var i = 0; i < func.FormalParameters.length; i++) {
-				if (func.FormalParameters[i] === 'eval') {
-					throw TypeError('formal parameter name "eval" is not allowed');
-				}
-				else if (func.FormalParameters[i] === 'arguments') {
-					throw TypeError('formal parameter name "arguments" is not allowed');
-				}
-				else if (func.FormalParameters.indexOf(func.FormalParameters[i], i + 1) > -1) {
-					throw TypeError('formal parameters with the same name are not allowed');
-				}
-			}
-		}
+            for (var i = 0; i < func.FormalParameters.length; i++) {
+                if (func.FormalParameters[i] === 'eval') {
+                    throw TypeError('formal parameter name "eval" is not allowed');
+                }
+                else if (func.FormalParameters[i] === 'arguments') {
+                    throw TypeError('formal parameter name "arguments" is not allowed');
+                }
+                else if (func.FormalParameters.indexOf(func.FormalParameters[i], i + 1) > -1) {
+                    throw TypeError('formal parameters with the same name are not allowed');
+                }
+            }
+        }
 
         return func;
     }
@@ -682,8 +682,8 @@ Narcissus.interpreter = (function () {
     Narcissus.ObjectObjectConstructor = function () {
         this.Properties = {};
 
-        this.DefineOwnProperty('prototype', 
-            {Value: null, Enumerable: false, Writable: false, Configurable: false});   
+        this.DefineOwnProperty('prototype',
+            {Value: null, Enumerable: false, Writable: false, Configurable: false});
 
         this.DefineNativeFunction('keys', 0, function keys (thisArg, args) {});
         this.DefineNativeFunction('create', 0, function keys (thisArg, args) {});
@@ -696,7 +696,7 @@ Narcissus.interpreter = (function () {
         Call: function (thisArg, args) {
             if (args[0] === undefined || args[0] === null)
                 return this.Construct(thisArg, args);
-                
+
             return ToObject(args[0]);
         },
 
@@ -753,66 +753,66 @@ Narcissus.interpreter = (function () {
     });
 
     /* Array */
-    
+
     Narcissus.ObjectArrayConstructor = function () {
         this.Properties = {};
 
-        this.DefineOwnProperty('prototype', 
-            {Value: null, Enumerable: false, Writable: false, Configurable: false});   
-        
+        this.DefineOwnProperty('prototype',
+            {Value: null, Enumerable: false, Writable: false, Configurable: false});
+
         this.DefineOwnProperty('length',
-            {Value: 1, Enumerable: false, Writable: true, Configurable: true});                             
-            
+            {Value: 1, Enumerable: false, Writable: true, Configurable: true});
+
         this.DefineNativeFunction('isArray', 1, function (thisArg, args) {
             if (args.length == 0 || args[0] === null || typeof args[0] != 'object')
                 return false;
             return (args[0].Class === 'Array');
         });
     }
-    
+
     extend(Narcissus.ObjectArrayConstructor, Narcissus.Object, {
         Class: 'Function',
         Extensible: true,
-        
+
         Call: function (thiArg, args) {
             return this.Construct(thisArg, args);
         },
-        
+
         Construct: function (thiArg, args) {
             var object, len;
-            
+
             if (args.length == 0) {
-                
-                if (typeof args[0] === 'number' || 
+
+                if (typeof args[0] === 'number' ||
                     (typeof args[0] === 'object' && args[0] !== null && args[0].Class === 'Number')) {
                     len = ToNumber(args[0]);
-                        
+
                     if (Math.floor(len) !== len) {
                         throw RangeError('excepted an integer');
                     }
-                    
+
                     object = new (Narcissus.ObjectArrayInstance);
                     object.Put('length', len);
-                    
+
                     return object;
-                }                
+                }
             }
-            
+
             object = new (Narcissus.ObjectArrayInstance);
             object.Put('length', args.length);
-            
+
             for (var i = 0; i < args.length; i++) {
-                object.DefineOwnProperty(ToString(i), 
-                    {Value: args[i], Enumerable: true, Writable: true, Configurable: true});                                    
+                object.DefineOwnProperty(ToString(i),
+                    {Value: args[i], Enumerable: true, Writable: true, Configurable: true});
             }
-            
+
             return object;
         }
-        
+
     });
-    
+
     /* Array.prototype */
-    
+
     Narcissus.ObjectArrayPrototype = function () {
         this.Properties = {};
 
@@ -821,25 +821,25 @@ Narcissus.interpreter = (function () {
 
         this.DefineNativeFunction('join', 1, function (thisArg, args) {
             var O, len, element0, element, S, R, k, next;
-            
+
             O = ToObject(thisArg);
-            len = Math.floor(O.Get('length'));            
-            
+            len = Math.floor(O.Get('length'));
+
             if (len === 0)
                 return ""; /* empty string */
-            
+
             seperator = args[0];
             if (seperator === undefined)
                 seperator = ',';
             else
-                seperator = ToString(seperator);      
-                
+                seperator = ToString(seperator);
+
             element0 = O.Get('0');
             if (element0 === undefined || element0 === null)
                 R = ""; /* empty string */
             else
                 R = ToString(element0);
-                
+
             k = 1;
             while (k < len) {
                 S = R + seperator;
@@ -851,10 +851,10 @@ Narcissus.interpreter = (function () {
                 R = S + next;
                 k++;
             }
-            
+
             return R;
         });
-            
+
         this.DefineNativeFunction('toString', 0, function (thisArg, args) {
             var array, func;
             array = ToObject(thisArg);
@@ -862,161 +862,161 @@ Narcissus.interpreter = (function () {
             if (!IsCallable(func)) {
                 /* Hack */
                 func = new (Narcissus.ObjectObjectPrototype)
-                func = func.Get('toString');                        
+                func = func.Get('toString');
             }
-            
+
             return func.Call(thisArg, args);
-        });        
+        });
     }
-    
+
     extend(Narcissus.ObjectArrayPrototype, Narcissus.Object, {
         Class: 'Array',
         Extensible: true,
     });
-    
-    
+
+
     /* Array Instance */
-    
+
     Narcissus.ObjectArrayInstance = function () {
         this.Properties = {};
-        
-        console.log(Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', 
-            {Value: 0, Writable: true, Enumerable: false, Configurable: false}, false]));
+
+        Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length',
+            {Value: 0, Writable: true, Enumerable: false, Configurable: false}, false]);
     };
 
     extend(Narcissus.ObjectArrayInstance, Narcissus.Object, {
         Class: 'Array',
         Extensible: true,
-        
+
         DefineOwnProperty: function (P, Desc, Throw) {
             var oldLenDesc, oldLen, newLenDesc, newLen, newDesc;
             var newWritable, succeeded, cannotDelete;
-            var index;            
-            
+            var index;
+
             oldLenDesc = this.GetOwnProperty('length');
             oldLen = oldLenDesc.Value;
-            
-            if (P === 'length') {                
-                
+
+            if (P === 'length') {
+
                 newLen = ToNumber(Desc.Value);
                 if (Math.floor(newLen) !== newLen) {
                     throw RangeError;
                 }
-                
+
                 newLenDesc = Desc;
                 newLenDesc.Value = newLen;
                 newLenDesc.Configurable = false;
                 newLenDesc.Enumerable = false;
-                newLenDesc.Writable = true;                
-                
+                newLenDesc.Writable = true;
+
                 if (!Desc.hasOwnProperty('Value')) {
                     return Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', newLenDesc, Throw]);
-                }            
-                
+                }
+
                 if (newLen > oldLen) {
                     return Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', newLenDesc, Throw]);
                 }
-                
+
                 if (!oldLenDesc.Writable) {
                     if (Throw)
                         throw TypeError;
                     else
                         return false;
                 }
-                
+
                 if (!newLenDesc.hasOwnProperty('Writable') || newLenDesc.Writable)
                     newWritable = true;
                 else {
                     newWritable = false;
                     newLenDesc.Writable = true
                 }
-                
-                succeeded = Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', newLenDesc, Throw]);                
+
+                succeeded = Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', newLenDesc, Throw]);
                 if (!succeeded)
                     return false;
-                    
+
                 while (newLen < oldLen) {
                     oldLen = oldLen - 1;
-                    
+
                     cannotDelete = this.Delete(ToString(oldLen), false);
                     if (cannotDelete) {
                         newLenDesc.Value = oldLen + 1;
                         newLenDesc.Writable = newWritable;
-                        
+
                         Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', newLenDesc, false]);
-                        
+
                         return false;
-                    }                
+                    }
                 }
-                
+
                 if (!newWritable)
                     Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', {Writable: false}, false]);
-                    
+
                 return true;
             }
             else if (Math.floor(ToNumber(P)) === ToNumber(P)) {
                 index = ToNumber(P);
-                
+
                 if (index > oldLen && !oldLenDesc.Writable) {
                     return false;
                 }
-                
-                succeeded = Narcissus.Object.prototype.DefineOwnProperty.apply(this, [P, Desc, false]);                
-                
+
+                succeeded = Narcissus.Object.prototype.DefineOwnProperty.apply(this, [P, Desc, false]);
+
                 if (!succeeded)
                     return false;
-                    
+
                 if (index > oldLen) {
                     oldLenDesc.Value = index + 1;
-                    Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', oldLenDesc, false]);                                                        
+                    Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', oldLenDesc, false]);
                 }
-                
+
                 return true;
             }
-            
+
             return Narcissus.Object.prototype.DefineOwnProperty.apply(this, [P, Desc, Throw]);
         }
-    });    
-    
-    
+    });
+
+
     /* String */
-    
+
     Narcissus.ObjectStringConstructor = function () {
         this.Properties = {};
-        
-        this.DefineOwnProperty('prototype', 
-            {Value: null, Enumerable: false, Writable: false, Configurable: false});        
-        
+
+        this.DefineOwnProperty('prototype',
+            {Value: null, Enumerable: false, Writable: false, Configurable: false});
+
         this.DefineOwnProperty('length',
-            {Value: 1, Enumerable: false, Writable: true, Configurable: true});     
+            {Value: 1, Enumerable: false, Writable: true, Configurable: true});
     }
-    
+
     extend(Narcissus.ObjectStringConstructor, Narcissus.Object, {
         Class: 'Function',
         Extensible: true,
-        
+
         Call: function (thisArg, args) {
             if (args.length == 0)
                 return ""; /* empty string */
-            
+
             return ToString(args[0]);
         },
-        
+
         Construct: function (thisArg, args) {
             var object;
-            
+
             object = new (Narcissus.ObjectStringInstance);
-            
+
             if (args.length == 0)
-                object.PrimitveValue = ""; /* empty string */
+                object.PrimitiveValue = ""; /* empty string */
             else
-                object.PrimitveValue = ToString(args[0]);
-            
+                object.PrimitiveValue = ToString(args[0]);
+
             return object;
         }
-        
+
     });
-    
+
     /* String.Prototype */
 
     Narcissus.ObjectStringPrototype = function () {
@@ -1024,8 +1024,8 @@ Narcissus.interpreter = (function () {
 
         this.DefineOwnProperty('constructor',
             {Value: null, Enumerable: false, Writable: true, Configurable: true});
-        
-        this.DefineNativeFunction('toString', 0, function (thisArg, args) {                        
+
+        this.DefineNativeFunction('toString', 0, function (thisArg, args) {
             if (typeof thisArg == 'string') {
                 return thisArg;
             }
@@ -1034,94 +1034,94 @@ Narcissus.interpreter = (function () {
             }
             else {
                 throw TypeError('Cannot use toString with an type other then string');
-            }            
+            }
         });
-        
-        this.DefineNativeFunction('valueOf', 0, function (thisArg, args) {            
+
+        this.DefineNativeFunction('valueOf', 0, function (thisArg, args) {
             if (typeof thisArg == 'string') {
                 return thisArg;
             }
-            else if (typeof thiArg == 'object' && thisArg.Class == 'String') {
+            else if (typeof thisArg == 'object' && thisArg.Class == 'String') {
                 return thisArg.PrimitiveValue;
             }
             else {
                 throw TypeError('Cannot use valueOf with an type other then string');
-            }            
-        });                
+            }
+        });
     };
-    
+
     extend(Narcissus.ObjectStringPrototype, Narcissus.Object, {
         Class: 'String',
         Extensible: true,
         PrimitiveValue: ""
     });
 
-    
-    /* String Instance */    
-    
+
+    /* String Instance */
+
     Narcissus.ObjectStringInstance = function () {
-        this.Properties = {};                
+        this.Properties = {};
     };
 
     extend(Narcissus.ObjectStringInstance, Narcissus.Object, {
         Class: 'String',
         Extensible: true,
         PrimitiveValue: ""
-    });        
-    
+    });
+
     /* Number */
-    
+
     Narcissus.ObjectNumberConstructor = function () {
         this.Properties = {};
-        
-        this.DefineOwnProperty('prototype', 
-            {Value: Narcissus.ObjectNumberPrototype, Enumerable: false, Writable: false, Configurable: false});        
-        
+
+        this.DefineOwnProperty('prototype',
+            {Value: Narcissus.ObjectNumberPrototype, Enumerable: false, Writable: false, Configurable: false});
+
         this.DefineOwnProperty('length',
-            {Value: 1, Enumerable: false, Writable: true, Configurable: true});     
-        
-        this.DefineOwnProperty('MAX_VALUE', 
-            {Value: Number.MAX_VALUE, Enumerable: false, Writable: false, Configurable: false});     
-            
-        this.DefineOwnProperty('MIN_VALUE', 
-            {Value: Number.MIN_VALUE, Enumerable: false, Writable: false, Configurable: false});     
-            
-        this.DefineOwnProperty('NaN', 
-            {Value: NaN, Enumerable: false, Writable: false, Configurable: false});     
-            
-        this.DefineOwnProperty('NEGATIVE_INFINITY', 
-            {Value: Number.NEGATIVE_INFINITY, Enumerable: false, Writable: false, Configurable: false});                                         
-            
-        this.DefineOwnProperty('POSITIVE_INFINITY', 
-            {Value: Number.POSITIVE_INFINITY, Enumerable: false, Writable: false, Configurable: false});               
+            {Value: 1, Enumerable: false, Writable: true, Configurable: true});
+
+        this.DefineOwnProperty('MAX_VALUE',
+            {Value: Number.MAX_VALUE, Enumerable: false, Writable: false, Configurable: false});
+
+        this.DefineOwnProperty('MIN_VALUE',
+            {Value: Number.MIN_VALUE, Enumerable: false, Writable: false, Configurable: false});
+
+        this.DefineOwnProperty('NaN',
+            {Value: NaN, Enumerable: false, Writable: false, Configurable: false});
+
+        this.DefineOwnProperty('NEGATIVE_INFINITY',
+            {Value: Number.NEGATIVE_INFINITY, Enumerable: false, Writable: false, Configurable: false});
+
+        this.DefineOwnProperty('POSITIVE_INFINITY',
+            {Value: Number.POSITIVE_INFINITY, Enumerable: false, Writable: false, Configurable: false});
     }
-    
+
     extend(Narcissus.ObjectNumberConstructor, Narcissus.Object, {
         Class: 'Function',
         Extensible: true,
-        
+
         Call: function (thisArg, args) {
             if (args.length == 0)
                 return 0;
-            
+
             return ToNumber(args[0]);
         },
-        
+
         Construct: function (thisArg, args) {
             var object;
-            
+
             object = new (Narcissus.ObjectNumberInstance);
-            
+
             if (args.length == 0)
                 object.PrimitveValue = 0;
             else
                 object.PrimitveValue = ToNumber(args[0]);
-            
+
             return object;
         }
-        
+
     });
-    
+
     /* Number.Prototype */
 
     Narcissus.ObjectNumberPrototype = function () {
@@ -1129,43 +1129,43 @@ Narcissus.interpreter = (function () {
 
         this.DefineOwnProperty('constructor',
             {Value: Narcissus.ObjectNumberConstructor, Enumerable: false, Writable: true, Configurable: true});
-        
+
         this.DefineNativeFunction('toString', 0, function (thisArg, args) {
-            var value, type = typeof thisArg;            
+            var value, type = typeof thisArg;
             if (type == 'number')
                 value = thisArg;
             else if (type == 'object' && thisArg.Class == 'Number')
                 value = thisArg.PrimitiveValue;
             else
                 throw TypeError('Cannot use toString with an type other then string');
-            
+
             if (args.length)
-                return value.toString(args[0]);         
+                return value.toString(args[0]);
             else
                 return value.toString();
         });
-        
-        this.DefineNativeFunction('valueOf', 0, function (thisArg, args) {            
+
+        this.DefineNativeFunction('valueOf', 0, function (thisArg, args) {
             if (typeof thisArg == 'number')
                 return thisArg;
             else if (typeof thisArg == 'object' && thisArg.Class == 'Number')
                 return thisArg.PrimitiveValue;
             else
-                throw TypeError('Cannot use valueOf with an type other then number');           
-        });                        
+                throw TypeError('Cannot use valueOf with an type other then number');
+        });
     };
-    
+
     extend(Narcissus.ObjectNumberPrototype, Narcissus.Object, {
         Class: 'Number',
         Extensible: true,
         PrimitiveValue: 0
     });
 
-    
-    /* Number Instance */    
-    
+
+    /* Number Instance */
+
     Narcissus.ObjectNumberInstance = function () {
-        this.Properties = {};                
+        this.Properties = {};
     };
 
     extend(Narcissus.ObjectNumberInstance, Narcissus.Object, {
@@ -1173,82 +1173,82 @@ Narcissus.interpreter = (function () {
         Extensible: true,
         PrimitiveValue: 0
     });
-    
-    /* Boolean Constructor */      
-    
+
+    /* Boolean Constructor */
+
     Narcissus.ObjectBooleanConstructor = function () {
         this.Properties = {};
-        
-        this.DefineOwnProperty('prototype', 
-            {Value: Narcissus.ObjectBooleanPrototype, Enumerable: false, Writable: false, Configurable: false});        
-        
+
+        this.DefineOwnProperty('prototype',
+            {Value: Narcissus.ObjectBooleanPrototype, Enumerable: false, Writable: false, Configurable: false});
+
         this.DefineOwnProperty('length',
-            {Value: 1, Enumerable: false, Writable: true, Configurable: true});     
+            {Value: 1, Enumerable: false, Writable: true, Configurable: true});
     }
-    
+
     extend(Narcissus.ObjectBooleanConstructor, Narcissus.Object, {
         Class: 'Function',
         Extensible: true,
-        
-        Call: function (thisArg, args) {            
+
+        Call: function (thisArg, args) {
             return ToBoolean(args[0]);
         },
-        
+
         Construct: function (thisArg, args) {
             var object;
-            
-            object = new (Narcissus.ObjectBooleanInstance);            
+
+            object = new (Narcissus.ObjectBooleanInstance);
             object.PrimitveValue = ToBoolean(args[0]);
-            
+
             return object;
         }
-        
+
     });
-    
-    
+
+
     Narcissus.ObjectBooleanPrototype = function () {
         this.Properties = {};
 
         this.DefineOwnProperty('constructor',
             {Value: Narcissus.ObjectBooleanConstructor, Enumerable: false, Writable: true, Configurable: true});
-        
+
         this.DefineNativeFunction('toString', 0, function (thisArg, args) {
-            var value, type = typeof thisArg;            
+            var value, type = typeof thisArg;
             if (type == 'boolean')
                 value = thisArg;
             else if (type == 'objec' && thisArg.Class == 'Boolean')
                 value = thisArg.PrimitiveValue;
             else
                 throw TypeError('Cannot use toString with an type other then boolean');
-            
+
             return value ? 'true' : 'false';
         });
-        
-        this.DefineNativeFunction('valueOf', 0, function (thisArg, args) {            
+
+        this.DefineNativeFunction('valueOf', 0, function (thisArg, args) {
             if (typeof thisArg == 'boolean')
                 return thisArg;
             else if (typeof thisArg == 'object' && thisArg.Class == 'Boolean')
                 return thisArg.PrimitiveValue;
             else
-                throw TypeError('Cannot use valueOf with an type other then boolean');           
-        });                        
+                throw TypeError('Cannot use valueOf with an type other then boolean');
+        });
     };
-    
+
     extend(Narcissus.ObjectBooleanPrototype, Narcissus.Object, {
         Class: 'Boolean',
         Extensible: true,
         PrimitiveValue: false
     });
-    
+
     Narcissus.ObjectBooleanInstance = function () {
-        this.Properties = {};                
+        this.Properties = {};
     };
 
     extend(Narcissus.ObjectBooleanInstance, Narcissus.Object, {
         Class: 'Boolean',
         Extensible: true,
         PrimitiveValue: false
-    });    
+    });
 
 
     var globals = {
@@ -1257,16 +1257,16 @@ Narcissus.interpreter = (function () {
 
         'Function': new (Narcissus.ObjectFunctionConstructor),
         'Function#prototype': new (Narcissus.ObjectFunctionPrototype),
-        
+
         'Array': new (Narcissus.ObjectArrayConstructor),
         'Array#prototype': new (Narcissus.ObjectArrayPrototype),
-        
+
         'String': new (Narcissus.ObjectStringConstructor),
         'String#prototype': new (Narcissus.ObjectStringPrototype),
-        
+
         'Number': new (Narcissus.ObjectNumberConstructor),
         'Number#prototype': new (Narcissus.ObjectNumberPrototype),
-        
+
         'Boolean': new (Narcissus.ObjectBooleanConstructor),
         'Boolean#prototype': new (Narcissus.ObjectBooleanPrototype)
     };
@@ -1274,9 +1274,9 @@ Narcissus.interpreter = (function () {
 
 
     /* ==== Set Up The Global Object === */
-    
+
     // All this should be done inside the constructor, but its easier to handle this way
-    
+
     var globalObject = new (Narcissus.ObjectObjectInstance);
 
     globalObject.Extensible = true;
@@ -1292,24 +1292,24 @@ Narcissus.interpreter = (function () {
     globalObject.DefineOwnProperty('Infinity',
         {Value: Infinity, Writable: false, Enumerable: false, Configurable: false});
 
-    globalObject.DefineOwnProperty('undefined',    
-        {Value: undefined, Writable: false, Enumerable: false, Configurable: false});   
+    globalObject.DefineOwnProperty('undefined',
+        {Value: undefined, Writable: false, Enumerable: false, Configurable: false});
 
-    
-    globalObject.DefineNativeFunction('alert', 1, function (thiArg, args) {        
-        return alert(ToString(args[0]));        
+
+    globalObject.DefineNativeFunction('alert', 1, function (thiArg, args) {
+        return alert(ToString(args[0]));
     });
-    
-    globalObject.DefineNativeFunction('isStrict', 1, function (thiArg, args, context) {        
-        return context.strict;        
-    });    
-        
+
+    globalObject.DefineNativeFunction('isStrict', 1, function (thiArg, args, context) {
+        return context.strict;
+    });
+
 
     /* ==== Set Up Object ==== */
     globalObject.DefineOwnProperty('Object',
         {Value: globals['Object'], Writable: true, Enumerable: false, Configurable: true});
-    
-    globals['Object'].Prototype = globals['Function#prototype'];    
+
+    globals['Object'].Prototype = globals['Function#prototype'];
     globals['Object'].Properties['prototype'].Value = globals['Object#prototype'];
     globals['Object#prototype'].Prototype = null;
 
@@ -1329,132 +1329,127 @@ Narcissus.interpreter = (function () {
     /*  ==== Set Up Array ==== */
     globalObject.DefineOwnProperty('Array',
         {Value: globals['Array'], Writable: true, Enumerable: false, Configurable: true});
-        
+
     globals['Array'].Prototype = globals['Function#prototype'];
     globals['Array'].Properties['prototype'].Value = globals['Array#prototype'];
     globals['Array#prototype'].Prototype = globals['Object#prototype'];
     globals['Array#prototype'].Properties['constructor'].Value = globals['Array'];
-    
-    
+
+
     Narcissus.ObjectArrayInstance.prototype.Prototype = globals['Array#prototype'];
-    
+
     /*  ==== Set Up String ==== */
     globalObject.DefineOwnProperty('String',
         {Value: globals['String'], Writable: true, Enumerable: false, Configurable: true});
-        
+
     globals['String'].Prototype = globals['Function#prototype'];
     globals['String'].Properties['prototype'].Value = globals['String#prototype'];
     globals['String#prototype'].Prototype = globals['Object#prototype'];
     globals['String#prototype'].Properties['constructor'].Value = globals['String'];
-    
-    
-    Narcissus.ObjectStringInstance.prototype.Prototype = globals['String#prototype'];    
-    
+
+
+    Narcissus.ObjectStringInstance.prototype.Prototype = globals['String#prototype'];
+
     /* ==== Set Up Number ==== */
     globalObject.DefineOwnProperty('Number',
         {Value: globals['Number'], Writable: true, Enumerable: false, Configurable: true});
-        
+
     globals['Number'].Prototype = globals['Function#prototype'];
     globals['Number'].Properties['prototype'].Value = globals['Number#prototype'];
     globals['Number#prototype'].Prototype = globals['Object#prototype'];
     globals['Number#prototype'].Properties['constructor'].Value = globals['Number'];
-    
-    
-    Narcissus.ObjectNumberInstance.prototype.Prototype = globals['Number#prototype'];      
-    
+
+
+    Narcissus.ObjectNumberInstance.prototype.Prototype = globals['Number#prototype'];
+
     /* ==== Set Up Boolean ==== */
     globalObject.DefineOwnProperty('Boolean',
         {Value: globals['Boolean'], Writable: true, Enumerable: false, Configurable: true});
-        
+
     globals['Boolean'].Prototype = globals['Function#prototype'];
     globals['Boolean'].Properties['prototype'].Value = globals['Boolean#prototype'];
     globals['Boolean#prototype'].Prototype = globals['Object#prototype'];
     globals['Boolean#prototype'].Properties['constructor'].Value = globals['Boolean'];
-    
-    
-    Narcissus.ObjectBooleanInstance.prototype.Prototype = globals['Boolean#prototype'];       
-    
-    console.log(globals['Array'].Properties['prototype']);
-    console.log(globals['Array#prototype']);
+
+    Narcissus.ObjectBooleanInstance.prototype.Prototype = globals['Boolean#prototype'];
     
     function ToPrimitive (Input, PreferredType) {
         var type;
-        
+
         if (Input === null || Input === undefined)
             return Input;
         type = typeof Input;
-        
+
         if (type == 'string' || type == 'number' || type == 'boolean')
             return Input;
-            
+
         if (type == 'function')
             throw 'Did not except function type in ToPrimitive'
-            
-        
+
+
         return Input.DefaultValue(PreferredType);
     }
-    
+
     function ToBoolean (Input) {
         var type;
-        
+
         if (Input === null || Input === undefined)
             return false;
-            
+
         type = typeof Input;
-        
+
         if (type == 'boolean')
             return Input;
-        
+
         if (type == 'number')
             return Boolean(Input);
-        
+
         if (type == 'string')
             return (Input.length > 0);
-            
+
         if (type == 'function')
-            throw 'Did not except function type in ToBoolean'        
-        
-        /* must be object */    
+            throw 'Did not except function type in ToBoolean'
+
+        /* must be object */
         return true;
     }
-    
+
     function ToNumber (Input) {
-        var type;        
+        var type;
         type = typeof Input;
-        
+
         if (type == 'function')
-            throw 'Did not except function in ToNumber'        
-            
+            throw 'Did not except function in ToNumber'
+
         if (type == 'object' && Input !== null)
-            return ToNumber(ToPrimitve(Input, 'Number'));            
-            
+            return ToNumber(ToPrimitve(Input, 'Number'));
+
         return Number(Input);
     }
-    
+
     function ToString (Input) {
         var type;
         type = typeof Input;
-        
+
         if (type == 'object' && Input !== null) {
             return ToString(ToPrimitive(Input, 'String'));
         }
         else if (type == 'function') {
-            console.log(String(Input));
             throw 'Did not expect function in ToString';
         }
         else {
             return String(Input);
         }
-    }    
+    }
 
     function ToObject (Input) {
         var type, object;
-        
+
         if (Input === null || Input === undefined)
             throw TypeError('Cannot convert ' + (Input === null ? 'null' : 'undefined') + ' to an object');
-            
+
         type = typeof Input;
-        
+
         if (type == 'boolean') {
             object = new (Narcissus.ObjectBooleanInstance);
             object.PrimitiveValue = Input;
@@ -1463,97 +1458,97 @@ Narcissus.interpreter = (function () {
         if (type == 'string') {
             object = new (Narcissus.ObjectStringInstance);
             object.PrimitiveValue = Input;
-            return object;            
+            return object;
         }
         if (type == 'number') {
             object = new (Narcissus.ObjectNumberInstance);
             object.PrimitiveValue = Input;
-            return object;            
+            return object;
         }
-        
+
         if (type == 'function')
-            throw 'Did not except function type in ToObject'           
-        
+            throw 'Did not except function type in ToObject'
+
         /* must be object */
         return Input;
     }
 
     function IsCallable(func) {
         var type = typeof func;
-        
+
         if (type != 'object')
             return false;
-            
+
         return func.Call !== undefined;
     }
-    
+
     function IsPrimitive (v) {
         var t = typeof v;
         return (t === "object") ? v === null : t !== "function";
     }
-    
+
     function SameValue (x, y) {
         if (typeof x !== typeof y)
             return false;
-            
+
         if (typeof x === 'undefined')
             return true;
-        
+
         if (x === null && y === null)
             return true;
-        
+
         if (typeof x === 'number')
             if (isNaN (x) && isNaN(y))
                 return true;
-            
+
             return x === y;
-            
+
         return x === y;
     }
-    
+
     function IsEqual (x, y) {
-		var typex = typeof x, typey = typeof y;
-		
-		if (x === null && y === null) {
-			return true;
-		}
-		else if (x === undefined && y === undefined) {
-			return true;
-		}
-		
-		if (x === null && y === undefined)
-			return true;
-		if (x === undefined && y === null)
-			return true;
-		
-		if (typex == typey) {
-			if (typex == 'number')
-				return x == y;
-			else if (typex == 'string')
-				return x == y;
-			else if (typex == 'boolean')
-				return x == y;
-			
-			return x === y;
-		}
-		
-		if (typex == 'number' && typey == 'string')
-			return IsEqual(x, ToNumber(y));
-		if (typex == 'string' && typey == 'number')
-			return IsEqual(ToNumber(x), y);
-		if (typex == 'boolean')
-			return IsEqual(ToNumber(x), y);			
-		if (typey == 'boolean')
-			return IsEqual(x, ToNumber(y));
-		
-		if ((typex == 'string' || typex == 'number') && typey == 'object' && y !== null)
-			return IsEqual(x, ToPrimitive(y));
-			
-		if (typex == 'object' && x !== null && (typey == 'string' || typey == 'number'))
-			return IsEqual(ToPrimitive(x), y);			
-		
-		return false;
-	}
+        var typex = typeof x, typey = typeof y;
+
+        if (x === null && y === null) {
+            return true;
+        }
+        else if (x === undefined && y === undefined) {
+            return true;
+        }
+
+        if (x === null && y === undefined)
+            return true;
+        if (x === undefined && y === null)
+            return true;
+
+        if (typex == typey) {
+            if (typex == 'number')
+                return x == y;
+            else if (typex == 'string')
+                return x == y;
+            else if (typex == 'boolean')
+                return x == y;
+
+            return x === y;
+        }
+
+        if (typex == 'number' && typey == 'string')
+            return IsEqual(x, ToNumber(y));
+        if (typex == 'string' && typey == 'number')
+            return IsEqual(ToNumber(x), y);
+        if (typex == 'boolean')
+            return IsEqual(ToNumber(x), y);
+        if (typey == 'boolean')
+            return IsEqual(x, ToNumber(y));
+
+        if ((typex == 'string' || typex == 'number') && typey == 'object' && y !== null)
+            return IsEqual(x, ToPrimitive(y));
+
+        if (typex == 'object' && x !== null && (typey == 'string' || typey == 'number'))
+            return IsEqual(ToPrimitive(x), y);
+
+        return false;
+    }
 
     /* Helper */
 
@@ -1608,19 +1603,19 @@ Narcissus.interpreter = (function () {
             ExecutionContext.current = this;
             try {
                 execute(n, this);
-            } 
-            catch (e) {                
-                if (e === THROW) {                    
+            }
+            catch (e) {
+                if (e === THROW) {
                     if (prev) {
                         prev.result = this.result;
                         throw THROW;
-                    }                    
+                    }
                     throw this.result;
                 }
                 else {
                     throw e;
                 }
-            } 
+            }
             finally {
                 ExecutionContext.current = previousContext;
             }
@@ -1632,66 +1627,66 @@ Narcissus.interpreter = (function () {
 
     function execute(node, context) {
         var a, f, i, j, r, s, t, u, v;
-        var value, args;
+        var value, args, thisArg;
 
-        console.log(Narcissus.definitions.tokens[node.type]);
+        /* console.log(Narcissus.definitions.tokens[node.type]); */
 
         switch (node.type) {
-            
-            case FUNCTION:            
+
+            case FUNCTION:
                 if (node.functionForm === parser.DECLARED_FORM) {
-					/* this will be processed by SCRIPT */
-				}
-				else if (node.functionForm === parser.STATEMENT_FORM) {
-					throw 'cant use function as statement here';
-				}
-				else {
-					value = createFunction(node, context);
-				}                    				                                    
+                    /* this will be processed by SCRIPT */
+                }
+                else if (node.functionForm === parser.STATEMENT_FORM) {
+                    throw 'cant use function as statement here';
+                }
+                else {
+                    value = createFunction(node, context);
+                }
                 break;
-                    
+
             case VAR:
                 for (i = 0, j = node.length; i < j; i++) {
                     u = node[i].initializer;
                     if (!u)
                         continue;
-                    
+
                     t = node[i].name;
-                    
+
                     for (s = context.scope; s; s = s.parent) {
                         if (s.object.HasProperty(t)) {
                             break;
                         }
                     }
-                    
-                    u = GetValue(execute(u, context));                    
-                    context.scope.object.DefineOwnProperty(t, 
+
+                    u = GetValue(execute(u, context));
+                    context.scope.object.DefineOwnProperty(t,
                         {Value: u, Enumerable: true, Writable: true, Configurable: true});
                 }
                 break;
-            
+
             case CONST:
                 throw 'const is not implemented';
 
             case SCRIPT:
-                t = context.scope.object;                                
-				context.strict = context.strict || node.strict;
+                t = context.scope.object;
+                context.strict = context.strict || node.strict;
 
                 /* Assign Declared Functions to the scope object */
                 a = node.funDecls;
                 for (i = 0, j = a.length; i < j; i++) {
                     f = createFunction(a[i], context);
-                    context.scope.object.DefineOwnProperty(a[i].name, 
-                        {Value: f, Enumerable: true, Writable: true, Configurable: true});                                        
+                    context.scope.object.DefineOwnProperty(a[i].name,
+                        {Value: f, Enumerable: true, Writable: true, Configurable: true});
                 }
-                
+
                 a = node.varDecls;
                 for (i = 0, j = a.length; i < j; i++) {
                     u = a[i];
                     if (!t.GetOwnProperty(u.name)) {
-						t.DefineOwnProperty(u.name, 
-							{Value: undefined, Enumerable: true, Writable: true, Configurable: true});
-					}
+                        t.DefineOwnProperty(u.name,
+                            {Value: undefined, Enumerable: true, Writable: true, Configurable: true});
+                    }
                 }
 
                 /* Fallthrough */
@@ -1700,15 +1695,15 @@ Narcissus.interpreter = (function () {
                     execute(node[i], context);
                 }
                 break;
-                
+
             case IF:
-				if (ToBoolean(GetValue(execute(node.condition, context)))) {
-					execute(node.thenPart, context);
-				}
-				else if (node.elsePart) {
-					execute(node.elsePart, context);
-				}
-				break;
+                if (ToBoolean(GetValue(execute(node.condition, context)))) {
+                    execute(node.thenPart, context);
+                }
+                else if (node.elsePart) {
+                    execute(node.elsePart, context);
+                }
+                break;
 
             case LIST:
                 value = [];
@@ -1716,245 +1711,243 @@ Narcissus.interpreter = (function () {
                     value.push(GetValue(execute(node[i], context)));
                 }
                 break;
-                
+
             case CALL:
                 r = execute(node[0], context);
                 args = execute(node[1], context);
-                
+
                 f = GetValue(r);
                 if (IsPrimitive(f) || f.Call === undefined) {
                     throw TypeError('not a function');
                 }
-                
+
                 thisArg = (r instanceof Reference) ? r.base : null;
                 value = f.Call(thisArg, args, context);
                 break;
-                
+
             case NEW:
             case NEW_WITH_ARGS:
-				r = execute(node[0], context);
-				f = GetValue(r);
-				
-				if (IsPrimitive(f) || f.Construct === undefined) {
-					throw TypeError('not an constructor');
-				}								
-				
-				if (node.type === NEW_WITH_ARGS)
-					args = execute(node[1], context);
-				else
-					args = [];
-				
-				console.log('args', args);
-				
-				value = f.Construct(null, args, context);
-				break;
-					
-                
-			case RETURN:
-				context.result = GetValue(execute(node.value, context));
-				throw RETURN;                
+                r = execute(node[0], context);
+                f = GetValue(r);
+
+                if (IsPrimitive(f) || f.Construct === undefined) {
+                    throw TypeError('not an constructor');
+                }
+
+                if (node.type === NEW_WITH_ARGS)
+                    args = execute(node[1], context);
+                else
+                    args = [];
+
+                value = f.Construct(null, args, context);
+                break;
+
+
+            case RETURN:
+                context.result = GetValue(execute(node.value, context));
+                throw RETURN;
 
             case SEMICOLON:
                 if (node.expression)
                     context.result = GetValue(execute(node.expression, context));
                 break;
-            
+
             case ASSIGN:
-                r = execute(node[0], context);                
+                r = execute(node[0], context);
                 value = GetValue(execute(node[1], context));
-                
-                if (node.assignOp) {                    
+
+                if (node.assignOp) {
                     throw 'ToDo ASSING';
                 }
-                
+
                 PutValue(r, value, node[0]);
                 break;
-            
+
             case DOT:
                 r = execute(node[0], context);
                 t = GetValue(r);
                 u = node[1].value;
-                
+
                 if (t === null) {
-					throw TypeError(r.propertyName + ' is null');
-				}
-				else if (t === undefined) {
-					throw TypeError(r.propertyName + ' is undefined');
-				}
-                
+                    throw TypeError(r.propertyName + ' is null');
+                }
+                else if (t === undefined) {
+                    throw TypeError(r.propertyName + ' is undefined');
+                }
+
                 value = new Reference(ToObject(t), u, node);
                 break;
-            
+
             case INDEX:
                 r = execute(node[0], context);
                 t = GetValue(r);
                 u = node[1].value;
-                
+
                 value = new Reference(ToObject(t), ToString(u), node);
-                break;                                           
-            
-            /* Unary Operators */                
+                break;
+
+            /* Unary Operators */
             case DELETE:
-				throw 'ToDo';
-            
+                throw 'ToDo';
+
             case VOID:
                 GetValue(execute(node[0], context));
                 break;
-                
+
             case TYPEOF:
-                t = execute(node[0], context);                
-                
+                t = execute(node[0], context);
+
                 if (t instanceof Reference)
                     t = t.base ? t.base.Get(t.propertyName) : undefined;
-                                
+
                 value = typeof t;
                 if (value === 'object' && t !== null && t.Call !== undefined)
                     value = 'function';
-                
-                break;                                     
+
+                break;
 
             case UNARY_PLUS:
                 value = ToNumber(GetValue(execute(node[0], context)));
                 break;
-                
+
             case UNARY_MINUS:
                 value = -ToNumber(GetValue(execute(node[0], context)));
                 break;
 
-			case BITWISE_NOT:
-				value = ~ToNumber(GetValue(execute(node[0], context)));
-				break;
-            
+            case BITWISE_NOT:
+                value = ~ToNumber(GetValue(execute(node[0], context)));
+                break;
+
             case NOT:
-				value = !ToBoolean(GetValue(execute(node[0], context)));
-				break;
-				
-			
-			/* Multiplicative Operators */			
-			case MUL:
+                value = !ToBoolean(GetValue(execute(node[0], context)));
+                break;
+
+
+            /* Multiplicative Operators */
+            case MUL:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
-                
+
                 value = ToNumber(t) * ToNumber(u);
                 break;
-               
+
             case DIV:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
-                
+
                 value = ToNumber(t) / ToNumber(u);
-                break;            
-                
+                break;
+
             case MOD:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
-                
+
                 value = ToNumber(t) % ToNumber(u);
-                break;            
-            
+                break;
+
             /* Additive Operators */
             case PLUS:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
-                
-                
+
+
                 t = ToPrimitive(t);
                 u = ToPrimitive(u);
-                
+
                 if (typeof t == 'string' || typeof u == 'string')
-					value = ToString(t) + ToString(u);
-				else
-					value = ToNumber(t) + ToNumber(u);
-                
-                break;				
-                
+                    value = ToString(t) + ToString(u);
+                else
+                    value = ToNumber(t) + ToNumber(u);
+
+                break;
+
             case MINUS:
-				t = GetValue(execute(node[0], context));
+                t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
-                
+
                 value = ToNumber(t) - ToNumber(u);
                 break;
-                
-               
-            /* Bitwise Shift Operators */            
+
+
+            /* Bitwise Shift Operators */
             case LSH:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
-                
+
                 value = ToNumber(t) << ToNumber(u);
-                break; 
-                
+                break;
+
             case RSH:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
-                
+
                 value = ToNumber(t) >> ToNumber(u);
-                break;                 
+                break;
 
 
             case URSH:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
-                
+
                 value = ToNumber(t) >>> ToNumber(u);
-                break; 
-                
+                break;
+
             /* Relational Operators */
             case INSTANCEOF:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
-                
+
                 if (typeof u !== 'object' || u === null)
                     throw TypeError('invalid operand for instanceof');
-                    
+
                 if (u.HasInstance === undefined)
                     throw TypeError('invalid operand for instanceof');
-                    
-                return u.HasInstance(t);  
+
+                return u.HasInstance(t);
 
             case IN:
-				t = GetValue(execute(node[0], context));
-				u = GetValue(execute(node[1], context));
-				
-				if (typeof u !== 'object' || u === null)
-					throw TypeError('right operand of in must be an object');
-					
-				value = u.HasProperty(ToString(t));
-				break;
-				
-			/* Equality Operators */
-			case EQ:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
-                
+
+                if (typeof u !== 'object' || u === null)
+                    throw TypeError('right operand of in must be an object');
+
+                value = u.HasProperty(ToString(t));
+                break;
+
+            /* Equality Operators */
+            case EQ:
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+
                 value = IsEqual(t, u);
                 break;
-            
-            case NE:  		
+
+            case NE:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
-                
+
                 value = !IsEqual(t, u);
                 break;
-                                
+
             case STRICT_EQ:
-				t = GetValue(execute(node[0], context));
-				u = GetValue(execute(node[1], context));
-				
-				value = (t === u);
-				break;
-				
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+
+                value = (t === u);
+                break;
+
             case STRICT_NE:
-				t = GetValue(execute(node[0], context));
-				u = GetValue(execute(node[1], context));
-				
-				value = (t !== u);
-				break;				
-                        
-                
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+
+                value = (t !== u);
+                break;
+
+
             case ARRAY_INIT:
                 value = new (Narcissus.ObjectArrayInstance);
-                
+
                 for (i = 0, j = node.length; i < j; i++) {
                     if (node[i])
                         value.Put(i, GetValue(execute(node[i], context)), false);
@@ -1963,10 +1956,10 @@ Narcissus.interpreter = (function () {
 
             case OBJECT_INIT:
                 value = new (Narcissus.ObjectObjectInstance);
-                
-                for (i = 0, j = node.length; i < j; i++) {                    
+
+                for (i = 0, j = node.length; i < j; i++) {
                     t = node[i];
-                    
+
                     if (t.type === PROPERTY_INIT) {
                         value.Put(t[0].value, GetValue(execute(t[1], context)), false);
                     }
@@ -1990,8 +1983,8 @@ Narcissus.interpreter = (function () {
 
             case THIS:
                 value = context.thisObject;
-                break;                
-                
+                break;
+
             case NUMBER:
             case STRING:
             case REGEXP:

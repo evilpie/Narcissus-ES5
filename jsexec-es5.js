@@ -78,7 +78,7 @@ Narcissus.interpreter = (function () {
                 initialized: false
             };
             
-            this.bindingList.push(N);
+            this.bindingsList.push(N);
         },
         
         setMutableBinding: function (N, V, S) {
@@ -765,66 +765,41 @@ Narcissus.interpreter = (function () {
         Strict: false,
 
         Call: function (thisArg, args, context) {
-            var functionContext, argsObject, scopeObject;
+            var functionContext, argsObject, scopeObject, env, value;
 
             functionContext = new ExecutionContext(FUNCTION_CODE);
 
             if (this.Strict) {
-                functionContext.thisObject = thisArg;
+                functionContext.thisBinding = thisArg;
             }
             else {
                 if (thisArg === null || thisArg === undefined) {
-                    functionContext.thisObject = globalObject;
+                    functionContext.thisBinding = globalObject;
                 }
                 else {
-                    functionContext.thisObject = ToObject(thisArg);
+                    functionContext.thisBinding = ToObject(thisArg);
                 }
             }
 
             /* old code */
             functionContext.caller = context;
             functionContext.callee = this;
-
-            /* ToDo Some kind of scope object */
-            scopeObject = new (Narcissus.ObjectObjectInstance);
-            scopeObject.Prototype = null;
-            scopeObject.Class = 'Scope';
-
-            /* ToDo  Arguments Object - This is !not! the real logic*/
-            argsObject = new (Narcissus.ObjectObjectInstance);
-            argsObject.Prototype = null; /* Fixme */
-            argsObject.Class = 'Arguments';
-
-            for (var i = 0; i < args.length; i++) {
-                argsObject.DefineOwnProperty(ToString(i),
-                    {Value: args[i], Configurable: false, Writable: false, Enumerable: false});
-
-                /* Define Formal Parameters */
-                if (this.FormalParameters[i]) {
-                    scopeObject.DefineOwnProperty(this.FormalParameters[i],
-                        {Value: args[i], Configurable: false, Writable: true, Enumerable: false});
-                }
-            }
-
-            argsObject.DefineOwnProperty('length',
-                    {Value: args[i], Configurable: false, Writable: false, Enumerable: false});
-
-            argsObject.DefineOwnProperty('callee',
-                    {Value: this, Configurable: false, Writable: false, Enumerable: false});
-
-            argsObject.Extensible = false;
-
-
-            scopeObject.DefineOwnProperty('arguments',
-                {Value: argsObject, Configurable: false, Writable: false, Enumerable: false});
-
-            functionContext.scope = {object: scopeObject, parent: this.Scope};
+            /* */
+            
             functionContext.strict = this.Strict;
+            
+            env = newDeclarativeEnvironment(this.Scope);                    
+            
+            functionContext.lexicalEnvironment = env;
+            functionContext.variableEnvironment = env;
+            
+            DoBinding(functionContext, this.Code, this, args);
 
             /* Let the party start */
 
             try {
-                functionContext.execute(this.Code)
+                console.log('start execute');
+                functionContext.execute(this.Code);
             }
             catch (e) {
                 if (e === RETURN) {
@@ -879,11 +854,12 @@ Narcissus.interpreter = (function () {
         var func, proto;
 
         func = new (Narcissus.ObjectFunctionInstance);
-        func.Scope = context.scope;
-        func.Strict = context.strict;
+        func.Scope = context.lexicalEnvironment;    
         func.Code = node.body;
-
+        func.Strict = context.strict || func.Code.strict;        
         func.FormalParameters = node.params;
+        
+        console.log(node.params);
 
         func.DefineOwnProperty('length',
             {Value: node.params.length, Enumerable: false, Writable: true, Configurable: true});
@@ -895,8 +871,6 @@ Narcissus.interpreter = (function () {
 
         func.DefineOwnProperty('prototype',
             {Value: proto, Enumerable: false, Writable: true, Configurable: false});
-
-        func.Strict = func.Strict || func.Code.Strict;
 
         if (func.Strict) {
             for (var i = 0; i < func.FormalParameters.length; i++) {
@@ -1818,7 +1792,58 @@ Narcissus.interpreter = (function () {
 
         return true;
     }
-
+    
+    function DoBinding (context, node, func, args) {        
+        var envRec = context.variableEnvironment.envRec;
+        var configurableBindings = (context.type === EVAL_CODE);
+        var a, i, j, u;
+        
+        if (context.type === FUNCTION_CODE) {        
+            for (var i = 0; i < func.FormalParameters.length; i++) {                
+                if (i > args.length)
+                    value = undefined;
+                else
+                    value = args[i];
+                        
+                if (!envRec.hasBinding(func.FormalParameters[i])) {
+                    envRec.createMutableBinding(func.FormalParameters[i], false);
+                }
+                        
+                envRec.setMutableBinding(func.FormalParameters[i], value, context.strict);            
+            }
+            
+        }
+            
+        a = node.funDecls;
+        for (i = 0, j = a.length; i < j; i++) {
+            u = a[i]
+                            
+            if (envRec.hasBinding(u.name)) {
+                envRec.createMutableBinding(u.name, configurableBindings);
+            }
+            else {
+                f = createFunction(u, context)
+                envRec.setMutableBinding(u.name, f, context.strict);
+                }
+        }
+        
+        if (context.type === FUNCTION_CODE && !envRec.hasBinding('arguments')) {
+            /* ToDo */
+        }
+                        
+        a = node.varDecls;
+        for (i = 0, j = a.length; i < j; i++) {
+            u = a[i];                
+            if (envRec.hasBinding(u.name)) {
+                envRec.createMutableBinding(u.name, configurableBindings);                
+            }
+            else {
+                envRec.setMutableBinding(u.name, undefined, context.strict);
+            }
+        }            
+        
+        
+    }
 
     /*  Execution Context */
 
@@ -1877,12 +1902,11 @@ Narcissus.interpreter = (function () {
 
     /* Muhaaa */
 
-
     function execute(node, context) {
         var a, f, i, j, r, s, t, u, v;
-        var value, args, thisArg;
+        var value, args, thisArg, envRec;
 
-        /* console.log(Narcissus.definitions.tokens[node.type]); */
+        console.log(Narcissus.definitions.tokens[node.type], node.type);
 
         switch (node.type) {
 
@@ -1899,51 +1923,33 @@ Narcissus.interpreter = (function () {
                 break;
 
             case VAR:
-                for (i = 0, j = node.length; i < j; i++) {
+                for (i = 0, j = node.length; i < j; i++) {                    
+                    t = node[i].name;
+                    
+                    r = GetIdentifierReference(context.lexicalEnvironment, t, context.strict)
+                    
                     u = node[i].initializer;
                     if (!u)
-                        continue;
+                        continue;                    
 
-                    t = node[i].name;
-
-                    for (s = context.scope; s; s = s.parent) {
-                        if (s.object.HasProperty(t)) {
-                            break;
-                        }
-                    }
-
-                    u = GetValue(execute(u, context));
-                    context.scope.object.DefineOwnProperty(t,
-                        {Value: u, Enumerable: true, Writable: true, Configurable: true});
+                    value = GetValue(execute(u, context));                    
+                    PutValue(r, value);
                 }
                 break;
+                
 
             case CONST:
                 throw 'const is not implemented';
 
-            case SCRIPT:
-                /*
-                t = context.scope.object;
+            case SCRIPT:                            
                 context.strict = context.strict || node.strict;
-
-                /* Assign Declared Functions to the scope object /
-                a = node.funDecls;
-                for (i = 0, j = a.length; i < j; i++) {
-                    f = createFunction(a[i], context);
-                    context.scope.object.DefineOwnProperty(a[i].name,
-                        {Value: f, Enumerable: true, Writable: true, Configurable: true});
-                }
-
-                a = node.varDecls;
-                for (i = 0, j = a.length; i < j; i++) {
-                    u = a[i];
-                    if (!t.GetOwnProperty(u.name)) {
-                        t.DefineOwnProperty(u.name,
-                            {Value: undefined, Enumerable: true, Writable: true, Configurable: true});
-                    }
-                }
-                */
-
+                
+                envRec = context.variableEnvironment.envRec;                            
+                
+                if (context.type === GLOBAL_CODE) {
+                    DoBinding(context, node);                                                 
+                }                                   
+                
                 /* Fallthrough */
             case BLOCK:
                 for (i = 0, j = node.length; i < j; i++) { /* Start executing every node */

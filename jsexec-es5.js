@@ -44,7 +44,7 @@ Narcissus.interpreter = (function () {
         },
         
         hasPrimitiveBase: function () {
-            return IsPrimtive(this.base);
+            return IsPrimitive(this.base);
         },
         
         isPropertyReference: function () {
@@ -57,13 +57,186 @@ Narcissus.interpreter = (function () {
     }
     
     
-    function DeclarativeEnvironment (outerEnvironment) {
-        this.
+    function DeclarativeEnvironment () {
+        this.bindings = {};
+        this.bindingsList = [];
     }
     
-    function ObjectEnvironment () {
+    DeclarativeEnvironment.prototype = {
+        hasBinding: function (N) {
+            return this.bindingsList.indexOf (N) > -1;
+        },
+        
+        createMutableBinding: function (N, D) {
+            if (this.bindingsList.indexOf (N) > -1)
+                throw 'Binding already exists';
+                
+            this.bindings[N] = {
+                value: undefined,
+                deletable: D,
+                mutable: true,
+                initialized: false
+            };
+            
+            this.bindingList.push(N);
+        },
+        
+        setMutableBinding: function (N, V, S) {
+            if (this.bindingsList.indexOf (N) == -1)
+                throw 'Binding doesnt exists';            
+                
+            if (this.bindings[N].mutable) {
+                this.bindings[N].value = V;
+                this.bindings[N].initialized = true;
+            }
+            else {
+                throw TypeError('Cannot change immutable binding');
+            }
+        },
+        
+        getBindingValue: function (N, Strict) {
+            var binding;
+            
+            if (this.bindingsList.indexOf (N) == -1)
+                throw 'Binding doesnt exists';
+                
+            binding = this.bindings[N];
+            
+            if (!binding.mutable && !binding.initialized) {
+                if (!Strict) {
+                    return false;
+                }
+                throw ReferenceError('not defined variable');
+            }
+            
+            return binding.value;
+        },
+        
+        deleteBinding: function (N) {
+            if (this.bindingsList.indexOf (N) == -1)
+                return true;
+            
+            if (!this.bindings[N].deletable)
+                return false;
+            
+            delete this.bindingList[(this.bindingsList.indexOf (N))];
+            delete this.bindings[N];
+                
+            return true;
+        },
+        
+        implicitThisValue: function () {
+            return undefined;
+        },
+        
+        createImmutableBinding: function (N) {
+            if (this.bindingsList.indexOf (N) > -1)
+                throw 'Binding already exists';
+                
+            this.bindingList.push(N);
+            this.bindings[N] = {
+                value: undefined,
+                deletable: false,
+                mutable: false,
+                initialized: false
+            };
+        },
+        
+        initializeImmutableBinding: function (N, V) {
+            if (this.bindingsList.indexOf (N) == -1)
+                throw 'Binding doesnt exists';
+            
+            if (this.bindings[N].mutable || this.bindings[N].initialized)
+                throw 'Binding must be immutable and not initialized';
+                
+            this.bindings[N].value = V;
+            this.bindings[N].initialized = true;
+        }
+    };
+    
+    function ObjectEnvironment (Object) {        
+        this.object = Object;
+        this.provideThis = false;
+    }
+    
+    ObjectEnvironment.prototype = {
+        hasBinding: function (N) {
+            return this.object.HasProperty(N);
+        },
+        
+        createMutableBinding: function (N, D) {
+            if (this.object.HasProperty(N))
+                throw 'binding already exists';
+            
+            this.object.DefineOwnProperty(N, {
+                Value: undefined,
+                Writable: true,
+                Enumerable: true, 
+                Configurable: D
+            });
+        },
+        
+        setMutableBinding: function (N, V, S) {
+            this.object.Put(N, V, S);
+        },
+        
+        getBindingValue: function (N, S) {
+            if (!this.object.HasProperty(N)) {
+                if (S)
+                    throw ReferenceError('variable is undefined')
+                
+                return undefined;
+            }
+            
+            return this.object.Get(N);
+        },
+        
+        deleteBinding: function (N) {
+            return this.object.Delete(N, false);
+        },
+        
+        implicitThisValue: function () {
+            if (this.provideThis)
+                return this.object;
+                
+            return undefined;    
+        }
+    }
+    
+    function LexicalEnvironment () {
     }    
     
+    function newDeclarativeEnvironment (parentEnvironment) {
+        var env;
+        env = new LexicalEnvironment();
+        env.envRec = new DeclarativeEnvironment();
+        env.parent = parentEnvironment;
+        
+        return env;
+    }
+    
+    function newObjectEnvironment (Object, parentEnvironment) {
+        var env;
+        env = new LexicalEnvironment();
+        env.envRec = new ObjectEnvironment(Object);
+        env.parent = parentEnvironment;
+        
+        return env;
+    }
+    
+    
+    function GetIdentifierReference (lex, name, strict) {
+        if (lex === null) {
+            return new Reference(undefined, name, null, strict);        
+        }
+        
+        if (lex.envRec.hasBinding(name)) {
+            return new Reference(lex.envRec, name, null, strict);
+        }
+        else {
+            return GetIdentifierReference(lex.parent, name, strict);
+        }
+    }
 
     function GetValue(v) {
         if (v instanceof Reference) {
@@ -80,14 +253,15 @@ Narcissus.interpreter = (function () {
                     return v.base.Get(v.propertyName);
                 }
             }
-            else { /* ToDo Environment Record */
+            else {
+                return v.base.getBindingValue(v.propertyName, v.isStrictReference());
             }
         }
         
         return v;
     }
 
-    function PutValue(v, w) {
+    function PutValue(v, W) {
         
         if (!(v instanceof Reference)) {
             throw ReferenceError('Invalid assignment left-hand side');
@@ -107,6 +281,11 @@ Narcissus.interpreter = (function () {
                 throw 'ToDo';
             }
         }
+        else {
+            v.base.setMutableBinding(v.getReferencedName(), W, v.isStrictReference());
+        }
+        
+        return;
     }
 
 
@@ -1433,6 +1612,8 @@ Narcissus.interpreter = (function () {
 
     Narcissus.ObjectBooleanInstance.prototype.Prototype = globals['Boolean#prototype'];
     
+    var globalEnv = newObjectEnvironment(globalObject, null);
+    
     function ToPrimitive (Input, PreferredType) {
         var type;
 
@@ -1652,7 +1833,7 @@ Narcissus.interpreter = (function () {
     ExecutionContext.prototype = {
         caller: null,
         callee: null,
-        scope: {object: globalObject, parent: null},
+        scope: null,
         thisObject: null,
         result: undefined,
         target: null,
@@ -1668,7 +1849,9 @@ Narcissus.interpreter = (function () {
             ExecutionContext.current = this;
             
             if (this.type == GLOBAL_CODE) {
-				this.thisObject = globalObject;
+				this.thisBinding = globalObject;
+                this.variableEnvironment = globalEnv;
+                this.lexicalEnvironment = globalEnv;
 			}
             
             try {
@@ -1739,10 +1922,11 @@ Narcissus.interpreter = (function () {
                 throw 'const is not implemented';
 
             case SCRIPT:
+                /*
                 t = context.scope.object;
                 context.strict = context.strict || node.strict;
 
-                /* Assign Declared Functions to the scope object */
+                /* Assign Declared Functions to the scope object /
                 a = node.funDecls;
                 for (i = 0, j = a.length; i < j; i++) {
                     f = createFunction(a[i], context);
@@ -1758,6 +1942,7 @@ Narcissus.interpreter = (function () {
                             {Value: undefined, Enumerable: true, Writable: true, Configurable: true});
                     }
                 }
+                */
 
                 /* Fallthrough */
             case BLOCK:
@@ -2052,7 +2237,7 @@ Narcissus.interpreter = (function () {
                 break;
 
             case THIS:
-                value = context.thisObject;
+                value = context.thisBinding;
                 break;
 
             case NUMBER:
@@ -2062,13 +2247,7 @@ Narcissus.interpreter = (function () {
                 break;
 
             case IDENTIFIER:
-                for (s = context.scope; s; s = s.parent) {
-                    if (s.object.HasProperty(node.value)) {
-                        break;
-                    }
-                }
-
-                value = new Reference(s && s.object, node.value, node);
+                value = GetIdentifierReference(context.lexicalEnvironment, node.value, context.strict);            
                 break;
 
             default:

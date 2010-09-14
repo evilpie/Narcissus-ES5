@@ -19,31 +19,94 @@ Narcissus.interpreter = (function () {
     eval(definitions.consts);
 
 
-    function Reference(base, propertyName, node) {
+    function Reference(base, propertyName, node, strict) {
         this.base = base;
         this.propertyName = propertyName;
         this.node = node;
+        this.strict = strict;
     }
 
-    Reference.prototype.toString = function () {
-        return this.node.getSource();
+    Reference.prototype = {
+        toString: function () {
+            return this.node.getSource();
+        },
+        
+        getBase: function () {
+            return this.base;
+        },
+        
+        getReferencedName: function () {
+            return this.propertyName;            
+        },
+        
+        isStrictReference: function () {
+            return this.strict;
+        },
+        
+        hasPrimitiveBase: function () {
+            return IsPrimtive(this.base);
+        },
+        
+        isPropertyReference: function () {
+            return this.hasPrimitiveBase() || this.base instanceof Narcissus.Object;
+        },
+        
+        isUnresolvableReference: function () {
+            return this.base === undefined;
+        }
     }
+    
+    
+    function DeclarativeEnvironment (outerEnvironment) {
+        this.
+    }
+    
+    function ObjectEnvironment () {
+    }    
+    
 
     function GetValue(v) {
         if (v instanceof Reference) {
-            if (!v.base) {
-                throw new ReferenceError(v.propertyName + ' is not defined', v.node.filename, v.node.lineno);
+            if (v.isUnresolvableReference()) {
+                throw ReferenceError('unresolvable reference');
             }
-
-            return v.base.Get(v.propertyName);
+            
+            if (v.isPropertyReference()) {
+                if (v.hasPrimitiveBase()) {
+                    return (ToObject(v.base)).Get(v.propertyName); 
+                    /* do i miss something or is the spec really over complicated */
+                }
+                else {
+                    return v.base.Get(v.propertyName);
+                }
+            }
+            else { /* ToDo Environment Record */
+            }
         }
+        
         return v;
     }
 
-    function PutValue(v, w, vn) {
-        if (v instanceof Reference)
-            return (v.base || globalObject).Put(v.propertyName, w, true);
-        throw new ReferenceError("Invalid assignment left-hand side", vn.filename, vn.lineno);
+    function PutValue(v, w) {
+        
+        if (!(v instanceof Reference)) {
+            throw ReferenceError('Invalid assignment left-hand side');
+        }
+        
+        if (v.isUnresolvableReference()) {
+            if (v.isStrictReference()) {
+                throw ReferenceError('cannot assign to an undefined variable in strict mode');
+            }
+            globalObject.Put(v.getReferencedName(), W, false);
+        }
+        else if (v.isPropertyReference()) {
+            if (!v.hasPrimitiveBase()) {
+                v.base.Put(v.getReferencedName(), W, v.isStrictReference());
+            }
+            else {
+                throw 'ToDo';
+            }
+        }
     }
 
 
@@ -528,7 +591,7 @@ Narcissus.interpreter = (function () {
             functionContext = new ExecutionContext(FUNCTION_CODE);
 
             if (this.Strict) {
-                functionContext.thisObject = thisArg || null;
+                functionContext.thisObject = thisArg;
             }
             else {
                 if (thisArg === null || thisArg === undefined) {
@@ -654,10 +717,7 @@ Narcissus.interpreter = (function () {
         func.DefineOwnProperty('prototype',
             {Value: proto, Enumerable: false, Writable: true, Configurable: false});
 
-        func.Strict = func.Strict;
-        if (func.Code[0] && func.Code[0].value === 'use strict') {
-            func.Strict = true;
-        }
+        func.Strict = func.Strict || func.Code.Strict;
 
         if (func.Strict) {
             for (var i = 0; i < func.FormalParameters.length; i++) {
@@ -1593,14 +1653,24 @@ Narcissus.interpreter = (function () {
         caller: null,
         callee: null,
         scope: {object: globalObject, parent: null},
-        thisObject: globalObject,
+        thisObject: null,
         result: undefined,
         target: null,
         strict: false,
+        
+        /* new */
+        variableEnvironment: null,
+        lexicalEnvironment: null,
+        thisBinding: null,
 
         execute: function(n) {
             var previousContext = ExecutionContext.current;
             ExecutionContext.current = this;
+            
+            if (this.type == GLOBAL_CODE) {
+				this.thisObject = globalObject;
+			}
+            
             try {
                 execute(n, this);
             }
@@ -1721,7 +1791,7 @@ Narcissus.interpreter = (function () {
                     throw TypeError('not a function');
                 }
 
-                thisArg = (r instanceof Reference) ? r.base : null;
+                thisArg = (r instanceof Reference) ? r.base : undefined; /* 11.2.3 */                                
                 value = f.Call(thisArg, args, context);
                 break;
 

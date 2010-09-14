@@ -28,10 +28,10 @@ function execute() {
 	}
 	catch (e) {
 		output.innerHTML += 'Error: ' + e + '<br>';
-		console && console.log(e);
+		window['console'] && console.log(e);
 		return;
 	}
-	console && console.log(v);
+	window['console'] && console.log(v);
 	output.innerHTML += 'Result: ' + v + '<br>';
 }
 </script>

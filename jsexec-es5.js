@@ -241,7 +241,7 @@ Narcissus.interpreter = (function () {
     function GetValue(v) {
         if (v instanceof Reference) {
             if (v.isUnresolvableReference()) {
-                throw ReferenceError('unresolvable reference');
+                throw ReferenceError(v.propertyName + ' is not defined');
             }
             
             if (v.isPropertyReference()) {
@@ -360,23 +360,8 @@ Narcissus.interpreter = (function () {
         },
 
         Put: function (P, V, Throw) {
-            var desc, ownDesc, valueDesc, next;
-
-            /* same as Get */
-            if (ToString(P) === '__proto__') {
-                if (typeof V !== 'object' || V === null) /* simply ingnore as mozilla does it */
-                    return;
-
-                next = V.Protype;
-                while (next && typeof next === 'object') {
-                    if (next === this)
-                        throw TypeError('cyclic __proto__ value');
-                    next = next.Prototype;
-                }
-
-                this.Prototype = V;
-            }
-
+            var desc, ownDesc, valueDesc;
+            
             if (!this.CanPut(P)) {
                 if (Throw)
                     throw TypeError;
@@ -447,7 +432,7 @@ Narcissus.interpreter = (function () {
                 return true;
             }
             if (Throw)
-                throw TypeError;
+                throw TypeError('cannot delete an not configurable property');
 
             return false;
         },
@@ -798,7 +783,6 @@ Narcissus.interpreter = (function () {
             /* Let the party start */
 
             try {
-                console.log('start execute');
                 functionContext.execute(this.Code);
             }
             catch (e) {
@@ -858,8 +842,6 @@ Narcissus.interpreter = (function () {
         func.Code = node.body;
         func.Strict = context.strict || func.Code.strict;        
         func.FormalParameters = node.params;
-        
-        console.log(node.params);
 
         func.DefineOwnProperty('length',
             {Value: node.params.length, Enumerable: false, Writable: true, Configurable: true});
@@ -1509,12 +1491,16 @@ Narcissus.interpreter = (function () {
         {Value: undefined, Writable: false, Enumerable: false, Configurable: false});
 
 
-    globalObject.DefineNativeFunction('alert', 1, function (thiArg, args) {
+    globalObject.DefineNativeFunction('alert', 1, function (thisArg, args) {
         return alert(ToString(args[0]));
     });
 
-    globalObject.DefineNativeFunction('isStrict', 1, function (thiArg, args, context) {
+    globalObject.DefineNativeFunction('isStrict', 1, function (thisArg, args, context) {
         return context.strict;
+    });
+    
+    globalObject.DefineNativeFunction('log', 1, function (thisArg, args, context) {
+        console.log.apply(console, args);
     });
 
 
@@ -1942,9 +1928,7 @@ Narcissus.interpreter = (function () {
                 throw 'const is not implemented';
 
             case SCRIPT:                            
-                context.strict = context.strict || node.strict;
-                
-                envRec = context.variableEnvironment.envRec;                            
+                context.strict = context.strict || node.strict;                       
                 
                 if (context.type === GLOBAL_CODE) {
                     DoBinding(context, node);                                                 
@@ -1978,7 +1962,7 @@ Narcissus.interpreter = (function () {
                 args = execute(node[1], context);
 
                 f = GetValue(r);
-                if (IsPrimitive(f) || f.Call === undefined) {
+                if (!IsCallable(f)) {
                     throw TypeError('not a function');
                 }
 
@@ -2025,26 +2009,22 @@ Narcissus.interpreter = (function () {
                 break;
 
             case DOT:
+            case INDEX:
+                        
                 r = execute(node[0], context);
                 t = GetValue(r);
-                u = node[1].value;
+                u = node[1];
 
                 if (t === null) {
                     throw TypeError(r.propertyName + ' is null');
                 }
                 else if (t === undefined) {
                     throw TypeError(r.propertyName + ' is undefined');
-                }
+                }                
+                
+                u = ToString(GetValue(execute(u, context)));
 
-                value = new Reference(ToObject(t), u, node);
-                break;
-
-            case INDEX:
-                r = execute(node[0], context);
-                t = GetValue(r);
-                u = node[1].value;
-
-                value = new Reference(ToObject(t), ToString(u), node);
+                value = new Reference(ToObject(t), u, node, context.strict);
                 break;
 
             /* Unary Operators */
@@ -2058,8 +2038,13 @@ Narcissus.interpreter = (function () {
             case TYPEOF:
                 t = execute(node[0], context);
 
-                if (t instanceof Reference)
-                    t = t.base ? t.base.Get(t.propertyName) : undefined;
+                if (t instanceof Reference) {
+                    if (t.isUnresolvableReference()) {
+                        value = 'undefined';
+                        break;
+                    }
+                    t = GetValue(t);
+                }
 
                 value = typeof t;
                 if (value === 'object' && t !== null && t.Call !== undefined)

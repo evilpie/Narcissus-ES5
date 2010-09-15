@@ -1211,24 +1211,25 @@ Narcissus.interpreter = (function () {
 
                 return true;
             }
-            else if (Math.floor(ToNumber(P)) === ToNumber(P)) {
+            else {
                 index = ToNumber(P);
+                if (Math.floor(index) === Math.abs(index)) {
+                    if (index > oldLen && !oldLenDesc.Writable) {
+                        return false;
+                    }
 
-                if (index > oldLen && !oldLenDesc.Writable) {
-                    return false;
+                    succeeded = Narcissus.Object.prototype.DefineOwnProperty.apply(this, [P, Desc, false]);
+
+                    if (!succeeded)
+                        return false;
+
+                    if (index > oldLen - 1) {
+                        oldLenDesc.Value = index + 1;
+                        Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', oldLenDesc, false]);
+                    }
+
+                    return true;
                 }
-
-                succeeded = Narcissus.Object.prototype.DefineOwnProperty.apply(this, [P, Desc, false]);
-
-                if (!succeeded)
-                    return false;
-
-                if (index > oldLen - 1) {
-                    oldLenDesc.Value = index + 1;
-                    Narcissus.Object.prototype.DefineOwnProperty.apply(this, ['length', oldLenDesc, false]);
-                }
-
-                return true;
             }
 
             return Narcissus.Object.prototype.DefineOwnProperty.apply(this, [P, Desc, Throw]);
@@ -1268,6 +1269,8 @@ Narcissus.interpreter = (function () {
                 object.PrimitiveValue = ""; /* empty string */
             else
                 object.PrimitiveValue = ToString(args[0]);
+            
+            object.Properties['length'].Value = object.PrimitiveValue.length;
 
             return object;
         }
@@ -1318,12 +1321,36 @@ Narcissus.interpreter = (function () {
 
     Narcissus.ObjectStringInstance = function () {
         this.Properties = {};
+        
+        this.DefineOwnProperty('length',
+            {Value: 0, Writable: false, Enumerable: false, Configurable: false}, false);        
     };
 
     extend(Narcissus.ObjectStringInstance, Narcissus.Object, {
         Class: 'String',
         Extensible: true,
-        PrimitiveValue: ""
+        PrimitiveValue: "",
+        
+        GetOwnProperty: function (P) {
+            var desc, index;
+            
+            desc = Narcissus.Object.prototype.GetOwnProperty.call(this, P);
+            if (desc === undefined) {
+                index = ToNumber(P);
+                if (Math.abs(index) === Math.floor(index)) {
+                    if (index > this.PrimitiveValue.length) {                        
+                        return undefined;
+                    }
+                    else {
+                        return {Value: this.PrimitiveValue.charAt(index), 
+                            Enumerable: true, Writable: false, Configurable: false};
+                    }
+                }
+            }
+            else {
+                return desc;
+            }
+        }
     });
 
     /* Number */
@@ -1722,6 +1749,7 @@ Narcissus.interpreter = (function () {
         if (type == 'string') {
             object = new (Narcissus.ObjectStringInstance);
             object.PrimitiveValue = Input;
+            object.Properties['length'].Value = object.PrimitiveValue.length;
             return object;
         }
         if (type == 'number') {
@@ -1997,6 +2025,9 @@ Narcissus.interpreter = (function () {
                 for (i = 0, j = node.length; i < j; i++) {                    
                     t = node[i].name;
                     
+                    if (t === 'eval' || t === 'arguments')
+                        throw SyntaxError('variable definition with identifier eval or arguments is not allowed');
+                    
                     r = GetIdentifierReference(context.lexicalEnvironment, t, context.strict)
                     
                     u = node[i].initializer;
@@ -2074,7 +2105,10 @@ Narcissus.interpreter = (function () {
                 args = execute(node[1], context);
 
                 f = GetValue(r);
+                
                 console.log(f);
+                
+                
                 if (!IsCallable(f)) {
                     throw TypeError('not a function');
                 }

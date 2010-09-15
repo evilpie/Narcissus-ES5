@@ -119,7 +119,7 @@ Narcissus.interpreter = (function () {
             if (!this.bindings[N].deletable)
                 return false;
             
-            delete this.bindingsList[(this.bindingsList.indexOf (N))];
+            delete this.bindingList[(this.bindingsList.indexOf (N))];
             delete this.bindings[N];
                 
             return true;
@@ -133,7 +133,7 @@ Narcissus.interpreter = (function () {
             if (this.bindingsList.indexOf (N) > -1)
                 throw 'Binding already exists';
                 
-            this.bindingsList.push(N);
+            this.bindingList.push(N);
             this.bindings[N] = {
                 value: undefined,
                 deletable: false,
@@ -1838,7 +1838,6 @@ Narcissus.interpreter = (function () {
         var envRec = context.variableEnvironment.envRec;
         var configurableBindings = (context.type === EVAL_CODE);
         var a, i, j, u;
-        var argumentsObject;        
         
         if (context.type === FUNCTION_CODE) {        
             for (var i = 0; i < func.FormalParameters.length; i++) {                
@@ -1869,19 +1868,8 @@ Narcissus.interpreter = (function () {
                 }
         }
         
-        if (context.type === FUNCTION_CODE) {            
-
-            argumentsObject = CreateArgumentsObject(func, args, context);
-            
-            if (func.Strict) {
-                console.log('strict');
-                envRec.createImmutableBinding('arguments');
-                envRec.initializeImmutableBinding('arguments', argumentsObject);
-            }
-            else {
-                envRec.createMutableBinding('arguments');
-                envRec.setMutableBinding('arguments', argumentsObject, false);        
-            }
+        if (context.type === FUNCTION_CODE && !envRec.hasBinding('arguments')) {
+            /* ToDo */
         }
                         
         a = node.varDecls;
@@ -1896,29 +1884,6 @@ Narcissus.interpreter = (function () {
         }            
         
         
-    }
-    
-    function CreateArgumentsObject (func, args, context) {
-        var argumentsObject, map, mappedNames;
-        
-        argumentsObject = new (Narcissus.Object);
-        argumentsObject.Class = 'Arguments';
-        argumentsObject.Prototype = globals['Object#prototype'];
-        argumentsObject.Extensible = true;
-        argumentsObject.Properties = {};    
-        argumentsObject.DefineOwnProperty('length', 
-            {Value: args.length, Writable: true, Enumerable: false, Configurable: true}, false);
-        
-        map = new (Narcissus.ObjectObjectInstance);
-            
-        for (var i = 0; i < args.length; i++) {
-            argumentsObject.DefineOwnProperty(ToString(i), 
-                {Value: args[i], Writable: true, Enumerable: true, Configurable: true}, false);
-                
-            
-        }
-        
-        return argumentsObject;              
     }
     
     function CheckArgumentsEval (r) {

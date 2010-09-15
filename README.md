@@ -25,7 +25,7 @@ ToDo:
 - implement all functions of the object like String.fromCharCode, Object.getPrototypeOf
 - implement Error Objects
 - all operators like + - * /
-- the bugs we will entcounter :)
+- [[DefineOwnProperty]] Reject Method
 
 
 

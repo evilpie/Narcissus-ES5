@@ -69,7 +69,7 @@ Narcissus.interpreter = (function () {
         
         createMutableBinding: function (N, D) {
             if (this.bindingsList.indexOf (N) > -1)
-                throw 'Binding already exists';
+                throw '[createMutableBinding] Binding already exists' + N;
                 
             this.bindings[N] = {
                 value: undefined,
@@ -83,7 +83,7 @@ Narcissus.interpreter = (function () {
         
         setMutableBinding: function (N, V, S) {
             if (this.bindingsList.indexOf (N) == -1)
-                throw 'Binding doesnt exists';            
+                throw '[setMutableBinding] binding does not exists' + N;
                 
             if (this.bindings[N].mutable) {
                 this.bindings[N].value = V;
@@ -98,7 +98,7 @@ Narcissus.interpreter = (function () {
             var binding;
             
             if (this.bindingsList.indexOf (N) == -1)
-                throw 'Binding doesnt exists';
+                throw '[getBindingValue] binding does not exists' + N;
                 
             binding = this.bindings[N];
             
@@ -131,7 +131,7 @@ Narcissus.interpreter = (function () {
         
         createImmutableBinding: function (N) {
             if (this.bindingsList.indexOf (N) > -1)
-                throw 'Binding already exists';
+                throw '[createImmutableBinding] Binding already exists' + N;
                 
             this.bindingList.push(N);
             this.bindings[N] = {
@@ -562,7 +562,7 @@ Narcissus.interpreter = (function () {
             }
             else if (IsDataDescriptor(current) === IsDataDescriptor(Desc)) {
                 if (current.Configurable === false) {
-                    if (current.Writable !== !!Desc.Writable)
+                    if (current.Writable === false && Desc.Writable === true)
                         return false; /* reject */
 
                     if (current.Writable === false) {
@@ -1837,7 +1837,7 @@ Narcissus.interpreter = (function () {
     function DoBinding (context, node, func, args) {        
         var envRec = context.variableEnvironment.envRec;
         var configurableBindings = (context.type === EVAL_CODE);
-        var a, i, j, u;
+        var a, i, j, u, f;
         
         if (context.type === FUNCTION_CODE) {        
             for (var i = 0; i < func.FormalParameters.length; i++) {                
@@ -1854,18 +1854,20 @@ Narcissus.interpreter = (function () {
             }
             
         }
+        
+        console.log(envRec);
             
         a = node.funDecls;
         for (i = 0, j = a.length; i < j; i++) {
-            u = a[i]
-                            
-            if (envRec.hasBinding(u.name)) {
+            u = a[i]            
+            
+            if (!envRec.hasBinding(u.name)) {
                 envRec.createMutableBinding(u.name, configurableBindings);
             }
-            else {
-                f = createFunction(u, context)
-                envRec.setMutableBinding(u.name, f, context.strict);
-                }
+            
+            f = createFunction(a[i], context);
+   
+            envRec.setMutableBinding(u.name, f, context.strict); 
         }
         
         if (context.type === FUNCTION_CODE && !envRec.hasBinding('arguments')) {
@@ -1874,13 +1876,13 @@ Narcissus.interpreter = (function () {
                         
         a = node.varDecls;
         for (i = 0, j = a.length; i < j; i++) {
-            u = a[i];                
-            if (envRec.hasBinding(u.name)) {
+            u = a[i]; 
+                           
+            if (!envRec.hasBinding(u.name)) {
                 envRec.createMutableBinding(u.name, configurableBindings);                
             }
-            else {
-                envRec.setMutableBinding(u.name, undefined, context.strict);
-            }
+            
+            envRec.setMutableBinding(u.name, undefined, context.strict);
         }            
         
         
@@ -1963,11 +1965,15 @@ Narcissus.interpreter = (function () {
         var a, f, i, j, r, s, t, u, v;
         var value, args, thisArg, envRec;
 
-        //console.log(Narcissus.definitions.tokens[node.type], node.type);
+        console.log(Narcissus.definitions.tokens[node.type], node.type);
 
         switch (node.type) {
 
             case FUNCTION:
+                
+                
+                console.log(' ** Function ** ');
+                
                 if (node.functionForm === parser.DECLARED_FORM) {
                     /* this will be processed by SCRIPT */
                 }
@@ -1980,6 +1986,9 @@ Narcissus.interpreter = (function () {
                 break;
 
             case VAR:
+            
+                console.log(' ** var ** ');
+            
                 for (i = 0, j = node.length; i < j; i++) {                    
                     t = node[i].name;
                     
@@ -1998,7 +2007,10 @@ Narcissus.interpreter = (function () {
             case CONST:
                 throw 'const is not implemented';
 
-            case SCRIPT:                            
+            case SCRIPT:
+                
+                console.log(' ** SCRIPT **');
+                                        
                 context.strict = context.strict || node.strict;                       
                 
                 if (context.type === GLOBAL_CODE) {
@@ -2060,6 +2072,7 @@ Narcissus.interpreter = (function () {
                 args = execute(node[1], context);
 
                 f = GetValue(r);
+                console.log(f);
                 if (!IsCallable(f)) {
                     throw TypeError('not a function');
                 }

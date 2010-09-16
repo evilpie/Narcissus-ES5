@@ -898,14 +898,14 @@ Narcissus.interpreter = (function () {
         this.DefineOwnProperty('prototype',
             {Value: null, Enumerable: false, Writable: false, Configurable: false});
         
-        this.DefineNativeFunction('getPrototypeOf', 1, function getPrototypeOf (thisArg, args) {
+        this.DefineNativeFunction('getPrototypeOf', 1, function (thisArg, args) {
             if (!IsObject(args[0]))
                 throw TypeError('getPrototypeOf excpects an object')
                 
             return args[0].Prototype;
         });
         
-        this.DefineNativeFunction('getOwnPropertyNames', 1, function getPrototypeOf (thisArg, args) {
+        this.DefineNativeFunction('getOwnPropertyNames', 1, function (thisArg, args) {
             if (!IsObject(args[0]))
                 throw TypeError('getOwnPropertyNames excpects an object')
              
@@ -920,7 +920,7 @@ Narcissus.interpreter = (function () {
             return array;
         }); 
         
-        this.DefineNativeFunction('preventExtension', 1, function getPrototypeOf (thisArg, args) {
+        this.DefineNativeFunction('preventExtension', 1, function (thisArg, args) {
             var obj = args[0];
             
             if (!IsObject(obj))
@@ -930,7 +930,7 @@ Narcissus.interpreter = (function () {
             return obj;
         });
 
-        this.DefineNativeFunction('isSealed', 1, function getPrototypeOf (thisArg, args) {
+        this.DefineNativeFunction('isSealed', 1, function (thisArg, args) {
             var obj = args[0], desc, key;
             
             if (!IsObject(ong))
@@ -945,7 +945,7 @@ Narcissus.interpreter = (function () {
             return (desc.Extensible === false);
         });
 
-        this.DefineNativeFunction('isForzen', 1, function getPrototypeOf (thisArg, args) {
+        this.DefineNativeFunction('isForzen', 1, function (thisArg, args) {
             var obj = args[0], desc, key;
             
             if (!IsObject(ong))
@@ -965,14 +965,14 @@ Narcissus.interpreter = (function () {
         });        
 
         
-        this.DefineNativeFunction('isExtensible', 1, function getPrototypeOf (thisArg, args) {
+        this.DefineNativeFunction('isExtensible', 1, function (thisArg, args) {
             if (!IsObject(args[0]))
                 throw TypeError('isExtensible excpects an object')
                 
             return args[0].Extensible;
         });        
         
-        this.DefineNativeFunction('keys', 1, function getPrototypeOf (thisArg, args) {
+        this.DefineNativeFunction('keys', 1, function (thisArg, args) {
             var obj = args[0], array = new (Narcissus.ObjectArrayInstance), i = 0, key;
             if (!IsObject(obj))
                 throw TypeError('getPrototypeOf excpects an object')
@@ -1022,7 +1022,7 @@ Narcissus.interpreter = (function () {
         this.DefineOwnProperty('constructor',
             {Value: Narcissus.ObjectObjectConstructor, Enumerable: false, Writable: true, Configurable: true});
 
-        this.DefineNativeFunction('toString', 0, function toString (thisArg, args) {
+        this.DefineNativeFunction('toString', 0, function (thisArg, args) {
             var class;
 
             if (thisArg === null)
@@ -1034,15 +1034,19 @@ Narcissus.interpreter = (function () {
             return '[object ' + class + ']';
         });
         
-        this.DefineNativeFunction('hasOwnProperty', 1, function toString (thisArg, args) {
+        this.DefineNativeFunction('valueOf', 0, function (thisArg, args) {
+            return ToObject(thisArg);
+        });
+        
+        this.DefineNativeFunction('hasOwnProperty', 1, function (thisArg, args) {
             var obj, property;
             
             property = ToString(args[0]);
             obj = ToObject(thisArg);
-            return !(obj.HasOwnProperty(property) === undefined);
+            return !(obj.GetOwnProperty(property) === undefined);
         });
 
-        this.DefineNativeFunction('isPrototypeOf', 1, function toString (thisArg, args) {
+        this.DefineNativeFunction('isPrototypeOf', 1, function (thisArg, args) {
             var obj, otherObj = args[0];
             
             if (!IsObject(otherObj))
@@ -1058,7 +1062,20 @@ Narcissus.interpreter = (function () {
             }
             
             return false;
-        });            
+        });
+        
+        this.DefineNativeFunction('propertyIsEnumerable', 1, function (thisArg, args) {
+            var obj, property, desc;
+            
+            property = ToString(args[0]);
+            obj = ToObject(thisArg);
+            desc = obj.GetOwnProperty(property);
+            
+            if (desc === undefined)
+                return false;
+                
+            return desc.Enumerable;
+        });                    
     };
 
     extend(Narcissus.ObjectObjectPrototype, Narcissus.Object, {

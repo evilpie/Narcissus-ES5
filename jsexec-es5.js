@@ -318,8 +318,8 @@ Narcissus.interpreter = (function () {
 
         GetOwnProperty: function (P) {
             var D, X;
-
-            if (!this.Properties.hasOwnProperty(P))
+            
+            if (!Object.prototype.hasOwnProperty.call(this.Properties, P))
                 return undefined;
 
             // Hack
@@ -920,22 +920,65 @@ Narcissus.interpreter = (function () {
             return array;
         }); 
         
+        this.DefineNativeFunction('preventExtension', 1, function getPrototypeOf (thisArg, args) {
+            var obj = args[0];
+            
+            if (!IsObject(obj))
+                throw TypeError('preventExtension excpects an object')
+                
+            obj.Extensible = false;
+            return obj;
+        });
+
+        this.DefineNativeFunction('isSealed', 1, function getPrototypeOf (thisArg, args) {
+            var obj = args[0], desc, key;
+            
+            if (!IsObject(ong))
+                throw TypeError('isSealed excpects an object')
+                
+            for (key in obj.Properties) {
+                desc = obj.GetOwnPropterty(key);
+                if (desc.Configurable)
+                    return false;
+            }            
+            
+            return (desc.Extensible === false);
+        });
+
+        this.DefineNativeFunction('isForzen', 1, function getPrototypeOf (thisArg, args) {
+            var obj = args[0], desc, key;
+            
+            if (!IsObject(ong))
+                throw TypeError('isForzen excpects an object')
+                
+            for (key in obj.Properties) {
+                desc = obj.GetOwnPropterty(key);
+                if (IsDataDescriptor(desc)) {
+                    if (desc.Writable)
+                        return false;
+                }
+                if (desc.Configurable)
+                    return false;
+            }            
+            
+            return (desc.Extensible === false);
+        });        
+
+        
         this.DefineNativeFunction('isExtensible', 1, function getPrototypeOf (thisArg, args) {
             if (!IsObject(args[0]))
                 throw TypeError('isExtensible excpects an object')
                 
             return args[0].Extensible;
-        });
+        });        
         
         this.DefineNativeFunction('keys', 1, function getPrototypeOf (thisArg, args) {
-            if (!IsObject(args[0]))
+            var obj = args[0], array = new (Narcissus.ObjectArrayInstance), i = 0, key;
+            if (!IsObject(obj))
                 throw TypeError('getPrototypeOf excpects an object')
              
-            var array = new (Narcissus.ObjectArrayInstance); 
-            var i = 0;
-                
-            for (var key in args[0].Properties) {
-                if (args[0].Properties[key].Enumerable) {
+            for (var key in obj.Properties) {
+                if (obj.Properties[key].Enumerable) {
                     array.Put(ToString(i), key, false);
                     i++;
                 }
@@ -989,7 +1032,33 @@ Narcissus.interpreter = (function () {
 
             class = ToObject(thisArg).Class;
             return '[object ' + class + ']';
-        });       
+        });
+        
+        this.DefineNativeFunction('hasOwnProperty', 1, function toString (thisArg, args) {
+            var obj, property;
+            
+            property = ToString(args[0]);
+            obj = ToObject(thisArg);
+            return !(obj.HasOwnProperty(property) === undefined);
+        });
+
+        this.DefineNativeFunction('isPrototypeOf', 1, function toString (thisArg, args) {
+            var obj, otherObj = args[0];
+            
+            if (!IsObject(otherObj))
+                return false;
+                
+            obj = ToObject(thisArg);
+                
+            for (otherObj = otherObj.Prototype; ; otherObj = otherObj.Prototype) {
+                if (otherObj === null)
+                    return false;
+                if (otherObj === obj)
+                    return true;
+            }
+            
+            return false;
+        });            
     };
 
     extend(Narcissus.ObjectObjectPrototype, Narcissus.Object, {

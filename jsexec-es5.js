@@ -2089,9 +2089,9 @@ Narcissus.interpreter = (function () {
 
     function execute(node, context) {
         var a, f, i, j, r, s, t, u, v;
-        var value, args, thisArg, envRec;
+        var value, args, thisArg, envRec, iterating;
 
-        console.log(Narcissus.definitions.tokens[node.type], node.type);
+        //console.log(Narcissus.definitions.tokens[node.type], node.type);
 
         switch (node.type) {
 
@@ -2152,6 +2152,27 @@ Narcissus.interpreter = (function () {
                 }
                 break;
                 
+            case DO/*_WHILE*/:
+                iterating = true;
+                while (iterating) {
+                    try {
+                        execute(node.body, context);
+                        iterating = ToBoolean(GetValue(execute(node.condition, context)));
+                    }
+                    catch (e) {
+                        if (e === BREAK && context.target === node) {
+                            break;
+                        }
+                        else if (e === CONTINUE && context.target === node) {
+                            continue;
+                        }
+                        else {
+                            throw e;
+                        }
+                    }
+                }
+                break;                
+                
             case FOR:
                 if (node.setup)
                     GetValue(execute(node.setup, context));
@@ -2163,21 +2184,56 @@ Narcissus.interpreter = (function () {
                         execute(node.body, context);
                     }
                     catch (e) {
-                        if (e === BREAK)
+                        if (e === BREAK && context.target === node) {
                             break;
-                            
-                        throw  'ToDo'
+                        }
+                        else if (e === CONTINUE && context.target === node) {
+                            continue;
+                        }
+                        else {
+                            throw e;
+                        }
                     }
                 }
                 break;
             
             case FOR_IN:
-                v = Getvalue(execute(node.condition, context));
+                v = GetValue(execute(node.object, context));                
+                if (node.varDecl)
+                    execute(node.varDecl, context);                
+                r = node.iterator;
                 
                 if (v === null || v === undefined)
                     break;
                 
-                throw  'ToDo'
+                out: for (; v; v = v.Prototype) {
+                    for (u in v.Properties) {                        
+                        t = v.Properties[u];                        
+                        if (t.Enumerable) {
+                            PutValue(execute(r, context), u);
+                            try {
+                                execute(node.body, context);
+                            }
+                            catch (e) {
+                                if (e === BREAK && context.target === node) {
+                                    break out;
+                                }
+                                else if (e === CONTINUE && context.target === node) {
+                                    continue;
+                                }
+                                else {
+                                    throw e;
+                                }
+                            }                                                                                       
+                        }
+                    }
+                }                
+                break;
+                
+            case BREAK:
+            case CONTINUE:
+                context.target = node.target;
+                throw node.type;
                 
             case LIST:
                 value = [];
@@ -2190,10 +2246,7 @@ Narcissus.interpreter = (function () {
                 r = execute(node[0], context);
                 args = execute(node[1], context);
 
-                f = GetValue(r);
-                
-                console.log(f);
-                
+                f = GetValue(r);    
                 
                 if (!IsCallable(f)) {
                     throw TypeError('not a function');

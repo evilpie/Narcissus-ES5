@@ -2155,8 +2155,7 @@ Narcissus.interpreter = (function () {
             case DO/*_WHILE*/:
                 iterating = true;
                 while (iterating) {
-                    try {
-                        execute(node.body, context);
+                    try {                        
                         iterating = ToBoolean(GetValue(execute(node.condition, context)));
                     }
                     catch (e) {
@@ -2194,6 +2193,8 @@ Narcissus.interpreter = (function () {
                             throw e;
                         }
                     }
+                    if (node.update) 
+                        GetValue(execute(node.update, context));
                 }
                 break;
             
@@ -2252,7 +2253,6 @@ Narcissus.interpreter = (function () {
                     throw TypeError('not a function');
                 }
 
-                thisArg = (r instanceof Reference) ? r.base : undefined; /* 11.2.3 */
                 if (r instanceof Reference) {
                     if (r.isPropertyReference()) {
                         thisArg = r.getBase();
@@ -2482,6 +2482,27 @@ Narcissus.interpreter = (function () {
                 break;
 
             /* Relational Operators */
+            case LT:
+            case LE:
+            case GT:
+            case GE:
+                t = GetValue(execute(node[0], context));
+                u = GetValue(execute(node[1], context));
+                
+                if (node.type === LT) {
+                    value = ToPrimitive(t, 'Number') < ToPrimitive(u, 'Number');
+                }
+                else if (node.type === LE) {
+                    value = ToPrimitive(t, 'Number') <= ToPrimitive(u, 'Number');
+                }
+                else if (node.type === GT) {
+                    value = ToPrimitive(t, 'Number') > ToPrimitive(u, 'Number');
+                }
+                else if (node.type === GE) {
+                    value = ToPrimitive(t, 'Number') >= ToPrimitive(u, 'Number');
+                }
+                break;
+            
             case INSTANCEOF:
                 t = GetValue(execute(node[0], context));
                 u = GetValue(execute(node[1], context));
